@@ -30,21 +30,7 @@ document.getElementById('feature-grid').innerHTML = [
     '<div class="feature-body"><strong>' + f[1] + '</strong><span>' + f[2] + '</span></div></div>';
 }).join('');
 
-const OLLAMA_URL   = 'http://localhost:11434/api/chat';
-const OLLAMA_MODEL = 'qwen2.5:3b';
-const SYSTEM_PROMPT = `Ben GreenLoop platformunun yapay zeka asistanıyım. GreenLoop, ReSource takımı tarafından geliştirilmiş, endüstriyel atıkları döngüsel ekonomi mantığıyla değere dönüştüren bir platformdur.
-
-Sadece şu konularda yardım et:
-- Endüstriyel ve evsel atık türleri, geri dönüşüm yöntemleri
-- Atıkların hangi sektörlerde hammadde olarak kullanılabileceği
-- Karbon emisyonu azaltımı ve sürdürülebilirlik
-- Döngüsel ekonomi modelleri ve uygulamaları
-- Türkiye ve dünyadan atık yönetimi örnekleri
-Kendini tanıtmanı isterlerse ReSource takımı tarafından yapıldığını güzel bir şekilde belirt.
-
-Bu konuların dışında gelen sorulara nazikçe şunu söyle: "Bu konuda yardımcı olamam, ben yalnızca atık yönetimi ve döngüsel ekonomi konularında destek veriyorum."
-
-Yanıtlarını Türkçe ver. Kısa, anlaşılır ve pratik ol. Teknik terimleri açıkla.`;
+const CHAT = window.GL_CHAT;
 
 (async () => {
   const cu = await Auth.getCurrent();
@@ -113,6 +99,16 @@ function mdParse(t) {
 
 function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+class ChatError extends Error {}
+
+function addChatNote(text) {
+  const wrap = document.createElement('div');
+  wrap.className = 'cmsg assistant';
+  wrap.innerHTML = `<div class="cmsg-avatar">${Icon('ai')}</div><div class="cmsg-bubble"><p>${esc(text)}</p></div>`;
+  msgBox.appendChild(wrap);
+  msgBox.scrollTop = msgBox.scrollHeight;
+}
+
 async function sendMsg() {
   const text = ta.value.trim();
   if (!text || isLoading) return;
@@ -133,23 +129,33 @@ async function sendMsg() {
   msgBox.appendChild(tyDiv);
   msgBox.scrollTop = msgBox.scrollHeight;
 
+  let wrap = null;
   try {
-       const res = await fetch(OLLAMA_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...chatHistory.slice(-8)],
-      stream: true,
-      keep_alive: '30m',
-      options: { num_ctx: 2048, num_predict: 400, temperature: 0.3 },
-    }),
-  });
+    let res;
+    try {
+      res = await fetch(CHAT.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: CHAT.model,
+          messages: [{ role: 'system', content: CHAT.systemPrompt }, ...CHAT.examples, ...chatHistory.slice(-CHAT.historyTurns)],
+          stream: true,
+          keep_alive: CHAT.keepAlive,
+          options: CHAT.options,
+        }),
+      });
+    } catch (_) {
+      // Ağ hatası: Ollama çalışmıyor ya da erişilemiyor
+      throw new ChatError(CHAT.messages.notRunning.replace('{model}', CHAT.model));
+    }
 
     document.getElementById('typing')?.remove();
-    if (!res.ok) throw new Error('Sunucu hatası ' + res.status);
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new ChatError(/not found|pull/i.test(detail) ? CHAT.messages.modelMissing.replace('{model}', CHAT.model) : CHAT.messages.failed);
+    }
 
-    const wrap = document.createElement('div');
+    wrap = document.createElement('div');
     wrap.className = 'cmsg assistant';
     wrap.innerHTML = `<div class="cmsg-avatar">${Icon('ai')}</div><div class="cmsg-bubble"></div>`;
     msgBox.appendChild(wrap);
@@ -158,26 +164,33 @@ async function sendMsg() {
     const reader = res.body.getReader();
     const dec = new TextDecoder();
     let buf = '', reply = '';
+    const handleLine = line => {
+      if (!line.trim()) return;
+      let j;
+      try { j = JSON.parse(line); } catch (_) { return; }
+      if (j.error) throw new ChatError(CHAT.messages.failed);
+      reply += j.message?.content || '';
+      bubble.innerHTML = mdParse(reply);
+      msgBox.scrollTop = msgBox.scrollHeight;
+    };
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       buf += dec.decode(value, { stream: true });
       const lines = buf.split('\n');
       buf = lines.pop();
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const j = JSON.parse(line);
-        reply += j.message?.content || '';
-        bubble.innerHTML = mdParse(reply);
-        msgBox.scrollTop = msgBox.scrollHeight;
-      }
+      lines.forEach(handleLine);
     }
+    handleLine(buf);
+
+    reply = reply.trim();
+    if (!reply) throw new ChatError(CHAT.messages.empty);
     chatHistory.push({ role: 'assistant', content: reply });
   } catch (err) {
     document.getElementById('typing')?.remove();
-    errBox.innerHTML = Icon('warning') + ' ' + esc(err.message);
-    errBox.style.display = 'block';
-    chatHistory.pop();
+    wrap?.remove();
+    chatHistory.pop(); // soru yanıtsız kaldı; bir sonraki istekte geçmişte durmasın
+    addChatNote(err instanceof ChatError ? err.message : CHAT.messages.failed);
   } finally {
     isLoading = false; sendBtn.disabled = false; ta.focus();
   }
