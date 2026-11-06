@@ -1,6 +1,6 @@
 # AGENTS.md
 
-GreenLoop: Turkish-language industrial waste-matching platform. Plain PHP 8.2 backend + vanilla JS frontend. No framework, no package manager, no build step, no test suite — verification is manual (run server, hit endpoints, use the UI).
+GreenLoop: Turkish-language industrial waste-matching platform. Plain PHP 8.2 backend + vanilla JS frontend. No framework, no package manager, no build step. Verification is manual (run server, hit endpoints, use the UI) plus `python3 tests/smoke_test.py` against a running server.
 
 ## Running
 
