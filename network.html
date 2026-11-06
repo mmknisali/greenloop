@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GreenLoop – Atık Ağı</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="assets/css/shared.css" />
+  <link rel="stylesheet" href="assets/css/network.css" />
+</head>
+<body>
+<nav>
+  <a class="nav-logo" href="index.html">GreenLoop<span class="dot">.</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Ana Sayfa</a></li>
+    <li><a href="network.html" class="active">Atık Ağı</a></li>
+  </ul>
+  <div class="nav-right" id="nav-right">
+    <a href="login.html" class="nav-login">Giriş Yap</a>
+    <a href="login.html" class="nav-cta">Şirket Ekle</a>
+  </div>
+</nav>
+<div class="page-hero">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-badge">Canlı Ağ</div>
+      <h1>Atık <em>Ağı</em> Haritası</h1>
+      <p>Kurumların atık döngüsüne katılımını keşfedin. Şirketleri inceleyin ve iletişime geçin.</p>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-num" id="stat-total">0</div><div class="hstat-lbl">Şirket</div></div>
+      <div class="hstat"><div class="hstat-num" id="stat-cities">0</div><div class="hstat-lbl">Şehir</div></div>
+      <div class="hstat"><div class="hstat-num" id="stat-sectors">0</div><div class="hstat-lbl">Sektör</div></div>
+    </div>
+  </div>
+</div>
+<div class="tabs-bar">
+  <button class="tab-btn" data-tab="members"><span data-icon="building" data-icon-class="tab-icon"></span> Şirketler</button>
+  <button class="tab-btn active" data-tab="graph"><span data-icon="network" data-icon-class="tab-icon"></span> Ağ Grafiği</button>
+</div>
+<div class="tab-content" id="tab-members">
+  <div class="filters">
+    <input class="filter-input" id="search-input" placeholder="Şirket adı veya şehir ara..."/>
+    <select class="filter-select" id="sector-filter"><option value="">Tüm Sektörler</option></select>
+    <select class="filter-select" id="city-filter"><option value="">Tüm Şehirler</option></select>
+  </div>
+  <div class="cards-grid" id="cards-grid">
+    <div class="empty-cards"><div class="eic" data-icon="leaf"></div><p>Yükleniyor...</p></div>
+  </div>
+</div>
+<div class="tab-content active" id="tab-graph">
+  <div id="graph-wrap">
+    <div id="graph-map"></div>
+    <div id="g-tooltip">
+      <div class="tt-name" id="tt-name">—</div>
+      <div class="tt-row"><span data-icon="pin" data-icon-class="tt-icon"></span> <span id="tt-loc">—</span></div>
+      <div class="tt-row"><span data-icon="factory" data-icon-class="tt-icon"></span> <span id="tt-sector">—</span></div>
+      <div class="tt-row"><span data-icon="calendar" data-icon-class="tt-icon"></span> <span id="tt-date">—</span></div>
+      <div class="tt-tags" id="tt-tags"></div>
+      <div class="tt-hint">Tıklayın → Şirket detayı</div>
+    </div>
+    <div class="graph-legend">
+      <p>Gösterge</p>
+      <div class="leg-row"><div class="leg-line" style="background:var(--gb)"></div>Atık bağlantısı</div>
+      <div class="leg-row"><div class="leg-line" style="background:var(--y)"></div>Tasarruflu (yakın)</div>
+      <div class="leg-row"><div class="leg-line" style="background:#a78bfa;border-top:2px dashed #a78bfa;height:0"></div>Aynı sektör</div>
+      <div class="leg-row"><div style="width:12px;height:12px;border-radius:50%;background:rgba(82,183,136,.3);border:2px solid #52b788;animation:pulse-ring 1.4s ease-out infinite;display:inline-block;"></div>En yakın şirket</div>
+    </div>
+    <div class="graph-controls">
+      <button class="gc-btn" id="gc-in"><span data-icon="plus"></span></button>
+      <button class="gc-btn" id="gc-out"><span data-icon="minus"></span></button>
+      <button class="gc-btn" id="gc-reset"><span data-icon="refresh"></span></button>
+    </div>
+    <div class="graph-empty" id="graph-empty"><div class="ge-icon" data-icon="network"></div><p>Ağda henüz şirket yok</p></div>
+  </div>
+</div>
+<script src="icons.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="tr-data.js"></script>
+<script src="assets/js/network.js"></script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+/* GreenLoop – login.css */
+html,body{min-height:100%;font-family:'DM Sans',sans-serif;background:#0d1f14;color:#fff;}
+
+.page{
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+}
+.left{
+  background:linear-gradient(145deg,var(--gd),#1f4d36);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:4rem 5vw;
+  position:relative;
+  overflow:hidden;
+}
+.left::before{
+  content:'';
+  position:absolute;
+  width:500px;
+  height:500px;
+  border-radius:50%;
+  border:1px solid rgba(82,183,136,.1);
+  top:-100px;
+  right:-150px;
+}
+.left::after{
+  content:'';
+  position:absolute;
+  width:300px;
+  height:300px;
+  border-radius:50%;
+  border:1px solid rgba(249,199,79,.08);
+  bottom:-80px;
+  left:-80px;
+}
+.brand{
+  font-family:'Syne',sans-serif;
+  font-weight:800;
+  font-size:1.5rem;
+  color:var(--gb);
+  margin-bottom:3rem;
+  text-decoration:none;
+  display:block;
+}
+.brand .dot{color:var(--y);}
+.left h2{
+  font-family:'Syne',sans-serif;
+  font-size:clamp(1.8rem,3vw,2.4rem);
+  font-weight:800;
+  color:#fff;
+  line-height:1.2;
+  margin-bottom:1rem;
+}
+.left h2 em{font-style:normal;color:var(--gl);}
+.left p{
+  font-size:.95rem;
+  color:rgba(255,255,255,.55);
+  line-height:1.75;
+  max-width:400px;
+  margin-bottom:2.5rem;
+}
+.feature-list{display:flex;flex-direction:column;gap:.85rem;}
+.feat{
+  display:flex;
+  align-items:center;
+  gap:.85rem;
+  font-size:.9rem;
+  color:rgba(255,255,255,.7);
+}
+.feat-dot{
+  width:32px;
+  height:32px;
+  border-radius:8px;
+  background:rgba(82,183,136,.15);
+  border:1px solid rgba(82,183,136,.25);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  color:var(--gl);
+}
+.feat-dot .icon{width:16px;height:16px;}
+
+.right{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:3rem 5vw;
+  background:#0d1f14;
+}
+.form-box{
+  width:100%;
+  max-width:420px;
+}
+.auth-tabs{
+  display:flex;
+  background:rgba(255,255,255,.05);
+  border-radius:12px;
+  padding:4px;
+  margin-bottom:2rem;
+}
+.auth-tab{
+  flex:1;
+  padding:.6rem;
+  text-align:center;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:.88rem;
+  font-weight:500;
+  color:rgba(255,255,255,.45);
+  transition:all .2s;
+  border:none;
+  background:none;
+}
+.auth-tab.active{
+  background:rgba(82,183,136,.18);
+  color:var(--gl);
+  font-weight:600;
+}
+.form-title{
+  font-family:'Syne',sans-serif;
+  font-weight:800;
+  font-size:1.4rem;
+  color:#fff;
+  margin-bottom:.4rem;
+}
+.form-sub{
+  font-size:.85rem;
+  color:rgba(255,255,255,.4);
+  margin-bottom:1.8rem;
+  line-height:1.6;
+}
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:.38rem;
+  margin-bottom:1rem;
+}
+.field label{
+  font-size:.68rem;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:rgba(255,255,255,.45);
+}
+.field input{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(82,183,136,.2);
+  color:rgba(255,255,255,.9);
+  border-radius:10px;
+  padding:.7rem 1rem;
+  font-size:.9rem;
+  font-family:'DM Sans',sans-serif;
+  outline:none;
+  transition:border-color .2s;
+}
+.field input:focus{border-color:var(--gb);}
+.field input::placeholder{color:rgba(255,255,255,.2);}
+.form-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:.75rem;
+}
+.submit-btn{
+  width:100%;
+  background:linear-gradient(135deg,var(--gm),var(--gb));
+  border:none;
+  color:#fff;
+  border-radius:11px;
+  padding:.9rem;
+  font-family:'Syne',sans-serif;
+  font-weight:700;
+  font-size:.95rem;
+  cursor:pointer;
+  margin-top:.5rem;
+  transition:opacity .2s,transform .15s;
+}
+.submit-btn:hover{opacity:.88;transform:translateY(-1px);}
+.submit-btn:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+  transform:none;
+}
+.form-error{
+  background:rgba(220,38,38,.12);
+  border:1px solid rgba(220,38,38,.3);
+  color:#fca5a5;
+  border-radius:9px;
+  padding:.65rem 1rem;
+  font-size:.82rem;
+  margin-bottom:1rem;
+  display:none;
+}
+
+@media(max-width:768px){
+  .page{grid-template-columns:1fr;}
+  .left{display:none;}
+  .right{
+    padding:2rem 6vw;
+    min-height:100vh;
+  }
+  .form-row{grid-template-columns:1fr;}
+  .submit-btn{font-size:.9rem;}
+}
+@media(max-width:400px){
+  .right{padding:1.5rem 5vw;}
+  .form-title{font-size:1.2rem;}
+}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GreenLoop – Giriş Yap</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="assets/css/shared.css" />
+  <link rel="stylesheet" href="assets/css/login.css" />
+</head>
+<body>
+<div class="page">
+  <div class="left">
+    <a class="brand" href="index.html">GreenLoop<span class="dot">.</span></a>
+    <h2>Atık Ağına<br><em>Hoş Geldiniz</em></h2>
+    <p>Şirketinizin atık verilerini platforma ekleyin, potansiyel hammadde ortaklarıyla eşleşin ve karbon ayak izinizi azaltın.</p>
+    <div class="feature-list" id="feature-list"></div>
+  </div>
+  <div class="right">
+    <div class="form-box">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Giriş Yap</button>
+        <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Hesap Oluştur</button>
+      </div>
+      <div id="login-form">
+        <div class="form-title">Tekrar hoş geldiniz</div>
+        <div class="form-sub">Hesabınıza giriş yapın</div>
+        <div class="form-error" id="login-err"></div>
+        <div class="field"><label>E-posta</label><input id="l-email" type="email" placeholder="ornek@sirket.com"/></div>
+        <div class="field"><label>Şifre</label><input id="l-pass" type="password" placeholder="••••••••"/></div>
+        <button class="submit-btn" id="btn-login" onclick="doLogin()">Giriş Yap</button>
+      </div>
+      <div id="register-form" style="display:none;">
+        <div class="form-title">Hesap Oluştur</div>
+        <div class="form-sub">Şirketiniz için bir hesap açın</div>
+        <div class="form-error" id="reg-err"></div>
+        <div class="form-row">
+          <div class="field"><label>Ad</label><input id="r-ad" type="text" placeholder="Ahmet"/></div>
+          <div class="field"><label>Soyad</label><input id="r-soyad" type="text" placeholder="Yılmaz"/></div>
+        </div>
+        <div class="field"><label>E-posta</label><input id="r-email" type="email" placeholder="ornek@sirket.com"/></div>
+        <div class="field"><label>Telefon</label><input id="r-tel" type="tel" placeholder="05XX XXX XX XX"/></div>
+        <div class="field"><label>Şifre</label><input id="r-pass" type="password" placeholder="En az 6 karakter"/></div>
+        <div class="field"><label>Şifre Tekrar</label><input id="r-pass2" type="password" placeholder="••••••••"/></div>
+        <button class="submit-btn" id="btn-register" onclick="doRegister()">Hesap Oluştur</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="icons.js"></script>
+<script src="tr-data.js"></script>
+<script src="assets/js/login.js"></script>
+</body>
+</html>
