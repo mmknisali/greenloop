@@ -68,7 +68,10 @@ function str(array $src, string $key): string {
 
 /** Rejects a value longer than the column it is stored in. */
 function maxLen(string $value, int $max, string $label): void {
-    if (mb_strlen($value) > $max) err($label . ' en fazla ' . $max . ' karakter olabilir.');
+    // Counts characters, not bytes (Turkish letters are two bytes), without needing the mbstring extension.
+    $chars = preg_match_all('/./su', $value);
+    if ($chars === false) $chars = strlen($value);
+    if ($chars > $max) err($label . ' en fazla ' . $max . ' karakter olabilir.');
 }
 
 function requireAuth(): array {
