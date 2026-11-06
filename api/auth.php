@@ -13,15 +13,20 @@ match ($action) {
 
 function handleRegister(): void {
     $b     = body();
-    $ad    = trim($b['ad']       ?? '');
-    $soyad = trim($b['soyad']    ?? '');
-    $email = trim($b['email']    ?? '');
-    $tel   = trim($b['tel']      ?? '');
-    $pass  = $b['password']      ?? '';
+    $ad    = str($b, 'ad');
+    $soyad = str($b, 'soyad');
+    $email = str($b, 'email');
+    $tel   = str($b, 'tel');
+    $pass  = is_string($b['password'] ?? null) ? $b['password'] : '';
 
     if (!$ad || !$soyad || !$email || !$pass) err('Zorunlu alanları doldurun.');
+    maxLen($ad, 100, 'Ad');
+    maxLen($soyad, 100, 'Soyad');
+    maxLen($email, 190, 'E-posta');
+    maxLen($tel, 30, 'Telefon');
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) err('Geçerli bir e-posta girin.');
     if (strlen($pass) < 6) err('Şifre en az 6 karakter olmalı.');
+    if (strlen($pass) > 72) err('Şifre en fazla 72 karakter olabilir.'); // bcrypt ignores anything past 72 bytes
 
     $chk = db()->prepare('SELECT id FROM users WHERE email = ?');
     $chk->execute([$email]);
@@ -38,16 +43,17 @@ function handleRegister(): void {
     }
 
     $user = ['id' => $id, 'ad' => $ad, 'soyad' => $soyad, 'email' => $email, 'tel' => $tel];
-    $_SESSION['user'] = $user;
+    startSession($user);
     resp(['ok' => true, 'user' => $user]);
 }
 
 function handleLogin(): void {
     $b     = body();
-    $email = trim($b['email']    ?? '');
-    $pass  = $b['password']      ?? '';
+    $email = str($b, 'email');
+    $pass  = is_string($b['password'] ?? null) ? $b['password'] : '';
 
     if (!$email || !$pass) err('E-posta ve şifre gerekli.');
+    maxLen($email, 190, 'E-posta');
 
     $stmt = db()->prepare('SELECT * FROM users WHERE email = ?');
     $stmt->execute([$email]);
@@ -56,11 +62,22 @@ function handleLogin(): void {
     if (!$row || !password_verify($pass, $row['password'])) err('E-posta veya şifre hatalı.');
 
     $user = ['id' => $row['id'], 'ad' => $row['ad'], 'soyad' => $row['soyad'], 'email' => $row['email'], 'tel' => $row['tel']];
-    $_SESSION['user'] = $user;
+    startSession($user);
     resp(['ok' => true, 'user' => $user]);
 }
 
+/**
+ * Starts a fresh session for a user who has just proved who they are.
+ * A new session id on login stops a session id planted before login from
+ * being used after it (session fixation).
+ */
+function startSession(array $user): void {
+    session_regenerate_id(true);
+    $_SESSION['user'] = $user;
+}
+
 function handleLogout(): void {
+    $_SESSION = [];
     session_destroy();
     resp(['ok' => true]);
 }
