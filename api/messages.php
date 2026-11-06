@@ -38,18 +38,19 @@ function fmtMsg(array $m): array {
 
 function sendMessage(): void {
     $b           = body();
-    $toCompanyId = $b['toCompanyId'] ?? '';
-    $text        = trim($b['text']   ?? '');
+    $toCompanyId = str($b, 'toCompanyId');
+    $text        = str($b, 'text');
     if (!$toCompanyId) err('Şirket ID gerekli.');
     if (!$text)        err('Mesaj boş olamaz.');
+    maxLen($text, 5000, 'Mesaj');
 
     $chk = db()->prepare('SELECT id FROM companies WHERE id = ?');
     $chk->execute([$toCompanyId]);
     if (!$chk->fetch()) err('Şirket bulunamadı.', 404);
 
     $fromUserId = null;
-    $fromName   = trim($b['fromName']  ?? '');
-    $fromEmail  = trim($b['fromEmail'] ?? '');
+    $fromName   = str($b, 'fromName');
+    $fromEmail  = str($b, 'fromEmail');
 
     if (!empty($_SESSION['user'])) {
         $u = $_SESSION['user'];
@@ -58,6 +59,7 @@ function sendMessage(): void {
         $fromEmail  = $u['email'];
     } else {
         if (!$fromName) err('Adınızı girin.');
+        maxLen($fromName, 190, 'Ad');
         if (!$fromEmail || !filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) err('Geçerli e-posta girin.');
     }
 
@@ -209,9 +211,10 @@ function getSentThreads(): void {
 function sendReply(): void {
     $user = requireAuth();
     $b    = body();
-    $companyId = $b['companyId'] ?? '';
-    $text      = trim($b['text'] ?? '');
+    $companyId = str($b, 'companyId');
+    $text      = str($b, 'text');
     if (!$text || !$companyId) err('Eksik veri.');
+    maxLen($text, 5000, 'Mesaj');
 
     $chk = db()->prepare('SELECT user_id, name FROM companies WHERE id = ?');
     $chk->execute([$companyId]);
@@ -268,8 +271,8 @@ function pollNew(): void {
 function deleteThread(): void {
     $user = requireAuth();
     $b    = body();
-    $threadKey = $b['threadKey'] ?? '';
-    $type      = $b['type']      ?? 'in';
+    $threadKey = str($b, 'threadKey');
+    $type      = str($b, 'type') ?: 'in';
     if (!$threadKey) err('threadKey gerekli.');
 
     $db = db();
