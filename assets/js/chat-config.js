@@ -1,6 +1,36 @@
 // GreenLoop AI asistanı ayarları: model, istek ayarları, sistem promptu, örnekler ve hata metinleri.
 // index.js bu dosyayı okur. Prompt ve ayarlar burada, istek ve yanıt kodu index.js'te.
 window.GL_CHAT = {
+  // Sağlayıcı: 'ollama' (varsayılan, yerel model) veya 'openai-compatible' (OpenAI uyumlu uç; ör. OpenCode Zen).
+  // Değiştirmek için yalnızca bu satırı düzenleyin.
+  provider: 'ollama',
+
+  // OpenAI uyumlu sağlayıcı ayarları (provider: 'openai-compatible' iken kullanılır).
+  // OpenCode Zen (opencode.ai/docs/zen) — doğrulananlar:
+  //   baseUrl: https://opencode.ai/inference/openai/v1   (chat/completions: .../v1/chat/completions)
+  //   Ücretsiz modeller (/zen/v1/models listesinde fiyatı 0 olanlar, 2026-11-06 itibarıyla):
+  //   big-pickle, beam-free, flint-40b-free, mimo-v2.6-flash-free, nemotron-3.5-super-vl-free,
+  //   nemotron-3.5-lightning-free, deepseek-v4.1-flash-free, glm-5.3-flash-free, pulse-alpha-free.
+  //   DOĞRULANAMAYANLAR: ücretsiz modelin anahtarsız gerçek bir sohbet isteğiyle çalıştığı; bu kutuda
+  //   anahtarsız istek 429 (FreeUsageLimitError) döndü. Tarayıcıdan CORS başlığı da görünmedi
+  //   (Access-Control-Allow-Origin yok), yani sayfa doğrudan bu uca erişemeyebilir.
+  compat: {
+    baseUrl: 'https://opencode.ai/inference/openai/v1',
+    model: 'big-pickle',
+    // Anahtarı BURAYA YAZMAYIN (repo'ya girer). Tarayıcı konsolunda bir kez çalıştırın:
+    //   localStorage.setItem('gl_chat_key', 'ANAHTARINIZ')
+    apiKey: '',
+    temperature: 0.3,
+    maxTokens: 300,
+    messages: {
+      unreachable: 'Sohbet sunucusuna ulaşılamadı. Adresi (chat-config.js, compat.baseUrl) ve internet bağlantınızı kontrol edin.',
+      unauthorized: 'API anahtarı geçersiz ya da eksik. Tarayıcı konsolunda localStorage.setItem(\'gl_chat_key\', \'ANAHTAR\') ile girin.',
+      modelMissing: 'Model bulunamadı ya da kullanılamıyor. chat-config.js içindeki model adını kontrol edin.',
+      failed: 'Yanıt alınamadı. Lütfen tekrar deneyin.',
+      empty: 'Model boş yanıt verdi. Sorunuzu biraz farklı yazıp tekrar deneyin.',
+    },
+  },
+
   // Yerel Ollama sunucusu. Sayfa localhost'tan açılmalı (Ollama varsayılan olarak localhost'a izin verir).
   url: 'http://localhost:11434/api/chat',
   // 3b: 8 GB RAM'de de çalışır. 7b (ollama pull qwen2.5:7b) çok daha az uydurur; 16 GB RAM'li bir laptop için önerilen.
@@ -18,6 +48,7 @@ window.GL_CHAT = {
   messages: {
     notRunning: 'Yerel model çalışmıyor. `ollama serve` ve `ollama pull {model}` ile başlatın.',
     modelMissing: 'Model bulunamadı. `ollama pull {model}` komutuyla indirin, sonra tekrar deneyin.',
+    unauthorized: 'API anahtarı geçersiz ya da eksik.',
     failed: 'Yanıt alınamadı. Lütfen tekrar deneyin.',
     empty: 'Model boş yanıt verdi. Sorunuzu biraz farklı yazıp tekrar deneyin.',
   },

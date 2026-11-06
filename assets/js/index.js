@@ -109,6 +109,75 @@ function addChatNote(text) {
   msgBox.scrollTop = msgBox.scrollHeight;
 }
 
+// Sağlayıcıya göre istek. Ollama: NDJSON (/api/chat). openai-compatible: SSE (/chat/completions).
+function buildRequest() {
+  const messages = [{ role: 'system', content: CHAT.systemPrompt }, ...CHAT.examples, ...chatHistory.slice(-CHAT.historyTurns)];
+  if (CHAT.provider === 'openai-compatible') {
+    const c = CHAT.compat;
+    let key = (c.apiKey || '').trim();
+    try { key = key || (localStorage.getItem('gl_chat_key') || '').trim(); } catch (_) {}
+    const headers = { 'Content-Type': 'application/json' };
+    if (key) headers.Authorization = 'Bearer ' + key;
+    return {
+      url: c.baseUrl.replace(/\/+$/, '') + '/chat/completions',
+      headers,
+      body: { model: c.model, messages, stream: true, temperature: c.temperature, max_tokens: c.maxTokens },
+      sse: true,
+      msgs: c.messages,
+      unreachable: c.messages.unreachable,
+      modelMissing: c.messages.modelMissing,
+    };
+  }
+  const m = CHAT.messages;
+  return {
+    url: CHAT.url,
+    headers: { 'Content-Type': 'application/json' },
+    body: { model: CHAT.model, messages, stream: true, keep_alive: CHAT.keepAlive, options: CHAT.options },
+    sse: false,
+    msgs: m,
+    unreachable: m.notRunning.replace('{model}', CHAT.model),
+    modelMissing: m.modelMissing.replace('{model}', CHAT.model),
+  };
+}
+
+// Akışı okur, metni baloncuğa yazar, tam yanıtı döndürür.
+async function readReply(res, sse, bubble, msgs) {
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '', reply = '', finished = false;
+  const show = () => { bubble.innerHTML = mdParse(reply); msgBox.scrollTop = msgBox.scrollHeight; };
+  const handleLine = raw => {
+    const line = raw.trim();
+    if (!line) return;
+    if (sse) {
+      if (!line.startsWith('data:')) return;          // SSE yorum ve olay alanları
+      const payload = line.slice(5).trim();
+      if (payload === '[DONE]') { finished = true; return; }
+      let j;
+      try { j = JSON.parse(payload); } catch (_) { throw new ChatError(msgs.failed); } // bozuk akış
+      if (j.error) throw new ChatError(msgs.failed);
+      reply += j.choices?.[0]?.delta?.content || '';
+    } else {
+      let j;
+      try { j = JSON.parse(line); } catch (_) { return; }
+      if (j.error) throw new ChatError(msgs.failed);
+      reply += j.message?.content || '';
+    }
+    show();
+  };
+  while (!finished) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const l of lines) { handleLine(l); if (finished) break; }
+  }
+  if (!finished) handleLine(buf);
+  reader.cancel().catch(() => {});
+  return reply;
+}
+
 async function sendMsg() {
   const text = ta.value.trim();
   if (!text || isLoading) return;
@@ -130,29 +199,24 @@ async function sendMsg() {
   msgBox.scrollTop = msgBox.scrollHeight;
 
   let wrap = null;
+  let msgs = CHAT.messages;   // hata metinleri: sağlayıcıya göre seçilir
   try {
+    const req = buildRequest();
+    msgs = req.msgs;
     let res;
     try {
-      res = await fetch(CHAT.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: CHAT.model,
-          messages: [{ role: 'system', content: CHAT.systemPrompt }, ...CHAT.examples, ...chatHistory.slice(-CHAT.historyTurns)],
-          stream: true,
-          keep_alive: CHAT.keepAlive,
-          options: CHAT.options,
-        }),
-      });
+      res = await fetch(req.url, { method: 'POST', headers: req.headers, body: JSON.stringify(req.body) });
     } catch (_) {
-      // Ağ hatası: Ollama çalışmıyor ya da erişilemiyor
-      throw new ChatError(CHAT.messages.notRunning.replace('{model}', CHAT.model));
+      // Ağ hatası: sağlayıcı çalışmıyor ya da erişilemiyor
+      throw new ChatError(req.unreachable);
     }
 
     document.getElementById('typing')?.remove();
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      throw new ChatError(/not found|pull/i.test(detail) ? CHAT.messages.modelMissing.replace('{model}', CHAT.model) : CHAT.messages.failed);
+      if (res.status === 401 || res.status === 403) throw new ChatError(msgs.unauthorized || msgs.failed);
+      if (res.status === 404 || /not found|pull/i.test(detail)) throw new ChatError(req.modelMissing);
+      throw new ChatError(msgs.failed);
     }
 
     wrap = document.createElement('div');
@@ -160,37 +224,16 @@ async function sendMsg() {
     wrap.innerHTML = `<div class="cmsg-avatar">${Icon('ai')}</div><div class="cmsg-bubble"></div>`;
     msgBox.appendChild(wrap);
     const bubble = wrap.querySelector('.cmsg-bubble');
-
-    const reader = res.body.getReader();
-    const dec = new TextDecoder();
-    let buf = '', reply = '';
-    const handleLine = line => {
-      if (!line.trim()) return;
-      let j;
-      try { j = JSON.parse(line); } catch (_) { return; }
-      if (j.error) throw new ChatError(CHAT.messages.failed);
-      reply += j.message?.content || '';
-      bubble.innerHTML = mdParse(reply);
-      msgBox.scrollTop = msgBox.scrollHeight;
-    };
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop();
-      lines.forEach(handleLine);
-    }
-    handleLine(buf);
+    let reply = await readReply(res, req.sse, bubble, msgs);
 
     reply = reply.trim();
-    if (!reply) throw new ChatError(CHAT.messages.empty);
+    if (!reply) throw new ChatError(msgs.empty);
     chatHistory.push({ role: 'assistant', content: reply });
   } catch (err) {
     document.getElementById('typing')?.remove();
     wrap?.remove();
     chatHistory.pop(); // soru yanıtsız kaldı; bir sonraki istekte geçmişte durmasın
-    addChatNote(err instanceof ChatError ? err.message : CHAT.messages.failed);
+    addChatNote(err instanceof ChatError ? err.message : msgs.failed);
   } finally {
     isLoading = false; sendBtn.disabled = false; ta.focus();
   }
