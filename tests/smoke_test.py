@@ -257,12 +257,11 @@ def existing_checks():
     pw = "secret123"
 
     s, p = owner.call("GET", "/auth.php?action=me")
-    check("me is anonymous before login", s == 200 and p.get("ok") is False, (s, p))
+    check("me is anonymous before login", s == 200 and p == {"ok": True, "data": None}, (s, p))
 
     s, p = owner.call("POST", "/auth.php?action=register", {
         "ad": "Smoke", "soyad": "Owner", "email": email, "tel": "5550000", "password": pw})
     check("register succeeds", s in (200, 201) and p.get("ok") is True, (s, p))
-    uid = (p.get("user") or {}).get("id")
 
     s, p = owner.call("POST", "/auth.php?action=register", {
         "ad": "Smoke", "soyad": "Owner", "email": email, "tel": "", "password": pw})
@@ -271,14 +270,14 @@ def existing_checks():
     s, p = other.call("POST", "/auth.php?action=register", {
         "ad": "Smoke", "soyad": "Two", "email": other_email, "tel": "", "password": pw})
     check("second user registers", p.get("ok") is True, (s, p))
-    check("second user is logged in", (p.get("user") or {}).get("email") == other_email, (s, p))
+    check("second user is logged in", (p.get("data") or {}).get("email") == other_email, (s, p))
 
     s, p = owner.call("POST", "/auth.php?action=register", {
         "ad": "Smoke", "soyad": "Short", "email": f"short+{tag}@example.com", "password": "123"})
     check("short password rejected", p.get("ok") is False, (s, p))
 
     s, p = owner.call("GET", "/auth.php?action=me")
-    check("me returns the session user", p.get("ok") is True and (p.get("user") or {}).get("email") == email, (s, p))
+    check("me returns the session user", p.get("ok") is True and (p.get("data") or {}).get("email") == email, (s, p))
 
     s, p = owner.call("POST", "/auth.php?action=logout", {})
     check("logout ok", p.get("ok") is True, (s, p))
@@ -404,7 +403,7 @@ def existing_checks():
 
     if mid:
         s, p = owner.call("POST", "/messages.php?action=read", {"ids": [mid, second.get("id")]})
-        check("owner marks messages read in a batch", p.get("ok") is True and p.get("updated") == 2, (s, p))
+        check("owner marks messages read in a batch", p.get("ok") is True and (p.get("data") or {}).get("updated") == 2, (s, p))
         s, p = other.call("POST", "/messages.php?action=read", {"ids": [mid]})
         check("other user cannot mark read", s == 403, (s, p))
 

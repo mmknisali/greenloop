@@ -50,7 +50,7 @@ function handleRegister(): void {
 
     $user = ['id' => $id, 'ad' => $ad, 'soyad' => $soyad, 'email' => $email, 'tel' => $tel];
     startSession($user);
-    resp(['ok' => true, 'user' => $user]);
+    resp(['ok' => true, 'data' => $user]);
 }
 
 function handleLogin(): void {
@@ -70,7 +70,7 @@ function handleLogin(): void {
 
     $user = ['id' => $row['id'], 'ad' => $row['ad'], 'soyad' => $row['soyad'], 'email' => $row['email'], 'tel' => $row['tel']];
     startSession($user);
-    resp(['ok' => true, 'user' => $user]);
+    resp(['ok' => true, 'data' => $user]);
 }
 
 /**
@@ -86,10 +86,9 @@ function startSession(array $user): void {
 function handleLogout(): void {
     $_SESSION = [];
     session_destroy();
-    resp(['ok' => true]);
+    resp(['ok' => true, 'data' => null]);
 }
 
 function handleMe(): void {
-    if (empty($_SESSION['user'])) resp(['ok' => false, 'user' => null]);
-    resp(['ok' => true, 'user' => $_SESSION['user']]);
+    resp(['ok' => true, 'data' => $_SESSION['user'] ?? null]);
 }

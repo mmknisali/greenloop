@@ -12,7 +12,8 @@ let
 in
 {
   # ── Environment variables ──
-  env.GREET = "GreenLoop";
+  dotenv.enable = true;
+  env.PHP_CLI_SERVER_WORKERS = "4";
 
   # ── Languages ──
   languages.php.enable = true;
@@ -20,7 +21,7 @@ in
   languages.php.extensions = [ "pdo_mysql" "mysqli" "mbstring" "curl" ];
 
   # ── Packages ──
-  packages = [ pkgs.git pkgs.mariadb pkgs.curl ];
+  packages = [ pkgs.git pkgs.mariadb pkgs.curl pkgs.jq pkgs.python3 ];
 
   # ── Services ──
   services.mysql.enable = true;
@@ -28,13 +29,15 @@ in
   services.mysql.settings = {
     mysqld = {
       skip-grant-tables = true;
+      bind-address = "127.0.0.1";
     };
   };
 
   # ── Processes ──
   processes.web-server.exec = ''
     ${initDb} || exit $?
-    exec ${config.languages.php.package}/bin/php -S 127.0.0.1:8000 -t .
+    # For phone testing only, change 127.0.0.1 to 0.0.0.0 on a trusted LAN.
+    exec ${config.languages.php.package}/bin/php -S 127.0.0.1:8000 -t . router.php
   '';
   processes.web-server.restart.on = "on_failure";
   processes.web-server.ready.http.get.port = 8000;
@@ -46,22 +49,10 @@ in
 
   # ── Shell hook ──
   enterShell = ''
-    echo "================================================"
-    echo "  GreenLoop Development Environment"
-    echo "================================================"
-    echo ""
-    echo "  Services:"
-    echo "    - Web server (PHP):  http://localhost:8000"
-    echo "    - MySQL:             localhost:3306 (root, no password)"
-    echo ""
-    echo "  Tasks:"
-    echo "    devenv tasks run greenloop:init-db   - Initialize database with schema and demo data"
-    echo ""
-    echo "  Files:"
-    echo "    schema.sql           - Database schema"
-    echo "    seed.sql             - Demo companies and tags"
-    echo "    api/                 - PHP API backend"
-    echo "================================================"
-    echo ""
+    echo "GreenLoop | PHP 8.2 + MariaDB"
+    echo "  devenv up --detach                      Start http://127.0.0.1:8000"
+    echo "  devenv tasks run greenloop:init-db      Reapply schema and demo seed"
+    echo "  python3 tests/smoke_test.py             Verify a running development server"
+    echo "  .env.example                           Optional DB and chat settings"
   '';
 }

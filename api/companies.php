@@ -156,7 +156,7 @@ function deleteCompany(): void {
     if ($row['user_id'] !== $user['id']) err('Bu şirketi silme yetkiniz yok.', 403);
 
     db()->prepare('DELETE FROM companies WHERE id = ?')->execute([$id]);
-    resp(['ok' => true]);
+    resp(['ok' => true, 'data' => null]);
 }
 
 if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {

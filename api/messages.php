@@ -198,7 +198,7 @@ function markRead(): void {
         maxLen($id, 64, 'Mesaj ID');
     }
     $ids = array_values(array_unique($ids));
-    if (!$ids) resp(['ok' => true, 'updated' => 0]);
+    if (!$ids) resp(['ok' => true, 'data' => ['updated' => 0]]);
     $in = implode(',', array_fill(0, count($ids), '?'));
 
     $updated = messageTransaction(function (PDO $db) use ($ids, $in, $userId) {
@@ -211,7 +211,7 @@ function markRead(): void {
         return $stmt->rowCount();
     });
     if ($updated === null) err('Yetkisiz.', 403);
-    resp(['ok' => true, 'updated' => $updated]);
+    resp(['ok' => true, 'data' => ['updated' => $updated]]);
 }
 
 function lockConversation(PDO $db, int $id): array|false {
@@ -300,5 +300,5 @@ function deleteThread(): void {
         return true;
     });
     if (!$hidden) err('Yetkisiz.', 403);
-    resp(['ok' => true]);
+    resp(['ok' => true, 'data' => null]);
 }

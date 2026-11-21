@@ -8,3 +8,7 @@ devenv.local.yaml
 
 # pre-commit
 .pre-commit-config.yaml
+
+# Local secrets and Python smoke-test artifacts
+.env
+__pycache__/
