@@ -55,40 +55,10 @@ const Auth = {
     logout: () => _post('/auth.php?action=logout', {}, true),
 };
 
-/* Jüri / demo sunumları için örnek şirket verisi.
-   Gerçek veritabanı boş ya da az doluyken atık ağını dolu göstermek için
-   Companies.getAll() sonucuna eklenir. Her kayıt demo:true taşır, böylece
-   arayüzde "Demo" etiketiyle gerçek kayıtlardan ayırt edilebilir. Gösterge
-   panelindeki "benim şirketlerim" (getByUser) bundan etkilenmez. */
-const DEMO_COMPANIES = [
-  { id:'demo-1',  demo:true, name:'Anadolu Geri Dönüşüm A.Ş.',   sector:'Geri Dönüşüm', il:'İstanbul',      ilce:'Tuzla',        inputs:['Plastik Atık','Metal Hurda'],                outputs:['Granül Plastik','Metal İngot'],       emission:34, size:'120-250', date:'2025', desc:'Kentsel plastik ve metal atıkları işleyerek ikincil hammadde üretir.', emoji:'recycle' },
-  { id:'demo-2',  demo:true, name:'Marmara Tekstil Grubu',        sector:'Tekstil',       il:'Bursa',         ilce:'Nilüfer',       inputs:['Pamuk','Granül Plastik'],                    outputs:['Tekstil Atığı','Boya Çamuru'],        emission:22, size:'250-500', date:'2025', desc:'Örme kumaş üretimi yapan entegre tekstil tesisi.',                     emoji:'thread' },
-  { id:'demo-3',  demo:true, name:'Ege Kağıt ve Karton',          sector:'Kağıt',         il:'İzmir',         ilce:'Bornova',       inputs:['Kağıt/Karton Atık'],                          outputs:['Geri Dönüştürülmüş Karton','Kağıt Çamuru'], emission:28, size:'50-120', date:'2024', desc:'Atık kağıttan oluklu mukavva üretimi.',                              emoji:'package' },
-  { id:'demo-4',  demo:true, name:'Konya Tarım Ürünleri',         sector:'Gıda',          il:'Konya',         ilce:'Selçuklu',      inputs:['Su','Gübre'],                                 outputs:['Organik Atık','Saman'],               emission:18, size:'50-120', date:'2024', desc:'Tahıl işleme ve paketleme tesisi.',                                  emoji:'wheat' },
-  { id:'demo-5',  demo:true, name:'Kayseri Mobilya San.',         sector:'Mobilya',       il:'Kayseri',       ilce:'Melikgazi',     inputs:['Saman','Ahşap Talaşı'],                       outputs:['Ahşap Talaşı','Mobilya Atığı'],       emission:15, size:'20-50',  date:'2023', desc:'Ahşap mobilya üretimi ve yüzey işleme.',                             emoji:'construction' },
-  { id:'demo-6',  demo:true, name:'Adana Cam Sanayi',             sector:'Cam',           il:'Adana',         ilce:'Seyhan',        inputs:['Cam Kırığı'],                                 outputs:['Cam Kırığı','Cam Tozu'],              emission:26, size:'120-250', date:'2024', desc:'Ambalaj camı üretimi ve cam geri dönüşümü.',                          emoji:'flask' },
-  { id:'demo-7',  demo:true, name:'Denizli Tekstil Boyahanesi',   sector:'Tekstil',       il:'Denizli',       ilce:'Merkezefendi',  inputs:['Tekstil Atığı'],                              outputs:['Boya Çamuru','Atık Su'],              emission:20, size:'50-120', date:'2023', desc:'Kumaş boyama ve terbiye tesisi.',                                    emoji:'thread' },
-  { id:'demo-8',  demo:true, name:'Kocaeli Petrokimya',           sector:'Kimya',         il:'Kocaeli',       ilce:'Gebze',         inputs:['Kullanılmış Yağ'],                             outputs:['Plastik Atık','Kimyasal Çamur'],      emission:30, size:'250-500', date:'2024', desc:'Polimer ve petrokimya ara ürün üretimi.',                            emoji:'flask' },
-  { id:'demo-9',  demo:true, name:'Antalya Seracılık Kooperatifi',sector:'Tarım',         il:'Antalya',       ilce:'Kumluca',       inputs:['Organik Atık','Kül'],                         outputs:['Sebze Atığı','Bitki Sapı'],           emission:12, size:'20-50',  date:'2023', desc:'Örtü altı sebze üretimi kooperatifi.',                                emoji:'leaf' },
-  { id:'demo-10', demo:true, name:'Mersin Liman Lojistik',        sector:'Lojistik',      il:'Mersin',        ilce:'Akdeniz',       inputs:['Ahşap Palet'],                                 outputs:['Ahşap Palet Atığı','Plastik Ambalaj'],emission:16, size:'50-120', date:'2024', desc:'Liman ardı depolama ve dağıtım hizmetleri.',                          emoji:'truck' },
-  { id:'demo-11', demo:true, name:'Sakarya Otomotiv Yan Sanayi',  sector:'Otomotiv',      il:'Sakarya',       ilce:'Erenler',       inputs:['Metal Hurda','Plastik Atık'],                 outputs:['Metal Talaşı','Lastik Atığı'],        emission:24, size:'250-500', date:'2024', desc:'Otomotiv yedek parça ve enjeksiyon üretimi.',                        emoji:'component' },
-  { id:'demo-12', demo:true, name:'Manisa Elektronik Geri Kazanım',sector:'Elektronik',   il:'Manisa',        ilce:'Yunusemre',     inputs:['Elektronik Atık'],                             outputs:['Devre Kartı Hurdası','Plastik Atık'], emission:33, size:'50-120', date:'2025', desc:'E-atık toplama ve değerli metal geri kazanımı.',                     emoji:'battery' },
-  { id:'demo-13', demo:true, name:'Eskişehir Seramik San.',       sector:'Seramik',       il:'Eskişehir',     ilce:'Odunpazarı',    inputs:['Cam Tozu','Kül'],                              outputs:['Seramik Atığı','Kil Çamuru'],         emission:19, size:'50-120', date:'2023', desc:'Yer ve duvar seramiği üretimi.',                                      emoji:'brick' },
-  { id:'demo-14', demo:true, name:'Trabzon Çay ve Gıda',          sector:'Gıda',          il:'Trabzon',       ilce:'Akçaabat',      inputs:['Su'],                                          outputs:['Çay Posası','Organik Atık'],          emission:14, size:'20-50',  date:'2023', desc:'Çay işleme ve paketleme fabrikası.',                                  emoji:'coffee' },
-  { id:'demo-15', demo:true, name:'Şanlıurfa Tekstil Fabrikası',  sector:'Tekstil',       il:'Şanlıurfa',     ilce:'Haliliye',      inputs:['Pamuk'],                                      outputs:['Tekstil Atığı','Pamuk Sapı'],         emission:21, size:'120-250', date:'2024', desc:'İplik ve dokuma üretimi.',                                            emoji:'thread' },
-  { id:'demo-16', demo:true, name:'Malatya Kayısı İşleme',        sector:'Gıda',          il:'Malatya',       ilce:'Yeşilyurt',     inputs:['Su'],                                          outputs:['Kayısı Çekirdeği','Organik Atık'],    emission:17, size:'20-50',  date:'2023', desc:'Kuru kayısı işleme ve paketleme.',                                    emoji:'wheat' },
-  { id:'demo-17', demo:true, name:'Samsun Kimya Endüstrisi',      sector:'Kimya',         il:'Samsun',        ilce:'İlkadım',       inputs:['Kimyasal Çamur'],                              outputs:['Kullanılmış Yağ','Asit Atığı'],       emission:27, size:'120-250', date:'2024', desc:'Endüstriyel kimyasal üretim tesisi.',                                emoji:'barrel' },
-  { id:'demo-18', demo:true, name:'Diyarbakır Enerji Santrali',   sector:'Enerji',        il:'Diyarbakır',    ilce:'Kayapınar',     inputs:['Çay Posası','Ahşap Talaşı','Pamuk Sapı'],     outputs:['Kül','Isı Enerjisi'],                 emission:40, size:'250-500', date:'2025', desc:'Biyokütle atıklarından enerji üretimi.',                             emoji:'energy' },
-  { id:'demo-19', demo:true, name:'Kahramanmaraş Metal İşleme',   sector:'Metal',         il:'Kahramanmaraş', ilce:'Onikişubat',    inputs:['Metal Talaşı','Metal İngot'],                 outputs:['Metal Hurda','Metal Tozu'],           emission:23, size:'50-120', date:'2024', desc:'Metal döküm ve talaşlı imalat.',                                      emoji:'factory' },
-  { id:'demo-20', demo:true, name:'Gaziantep Plastik Geri Dönüşüm',sector:'Plastik',      il:'Gaziantep',     ilce:'Şahinbey',      inputs:['Plastik Ambalaj','Lastik Atığı'],             outputs:['Granül Plastik','Plastik Atık'],      emission:31, size:'50-120', date:'2025', desc:'Ambalaj ve lastik atığından granül plastik üretimi.',                emoji:'recycle' }
-];
-
 const Companies = {
-    getAll:   async () => { const r = await _get('/companies.php?action=all'); return (Array.isArray(r.data) ? r.data : []).concat(DEMO_COMPANIES); },
+    getAll:   async () => { const r = await _get('/companies.php?action=all'); return Array.isArray(r.data) ? r.data : []; },
     getById:  async id => {
         if (!id) return null;
-        const demo = DEMO_COMPANIES.find(c => c.id === id);
-        if (demo) return demo;
         const r = await _get(`/companies.php?action=get&id=${encodeURIComponent(id)}`);
         return r.ok ? r.data : null;
     },
@@ -96,6 +66,8 @@ const Companies = {
     add:      d  => _post('/companies.php?action=add', d, true),
     delete:   id => _del(`/companies.php?action=delete&id=${encodeURIComponent(id)}`, true),
 };
+
+const Matches = { network: () => _get('/matches.php?action=network') };
 
 const Messages = {
     send:                  (d, signedIn = false) => _post('/messages.php?action=send', d, signedIn),

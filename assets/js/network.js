@@ -1,5 +1,6 @@
 applyIcons();
 let allCompanies = [];
+let networkEdges = [];
 
 const IL_COORDS = {
   'Adana':{lat:37.00,lon:35.32},'Adıyaman':{lat:37.76,lon:38.27},'Afyonkarahisar':{lat:38.75,lon:30.54},
@@ -31,21 +32,19 @@ const IL_COORDS = {
   'Yozgat':{lat:39.82,lon:34.81},'Zonguldak':{lat:41.45,lon:31.80}
 };
 
-function haversine(il1, il2) {
-  if (!Object.hasOwn(IL_COORDS, il1) || !Object.hasOwn(IL_COORDS, il2)) return null;
-  const c1 = IL_COORDS[il1], c2 = IL_COORDS[il2];
-  const R = 6371, dLat = (c2.lat - c1.lat) * Math.PI / 180, dLon = (c2.lon - c1.lon) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(c1.lat*Math.PI/180) * Math.cos(c2.lat*Math.PI/180) * Math.sin(dLon/2)**2;
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-}
-
 async function init() {
   const cu = await Auth.getCurrent();
   if (cu) {
     document.getElementById('nav-right').innerHTML =
       `<span class="nav-user">${escapeHtml(cu.ad)} ${escapeHtml(cu.soyad)}</span><a href="dashboard.html" class="nav-cta">Panel</a>`;
   }
-  allCompanies = await Companies.getAll();
+  await refreshNetwork();
+}
+
+async function refreshNetwork() {
+  const [companies, result] = await Promise.all([Companies.getAll(), Matches.network()]);
+  allCompanies = companies;
+  networkEdges = result.data?.edges ?? [];
   updateStats();
   populateFilters();
   renderCards();
@@ -81,7 +80,7 @@ function renderCards() {
   if (!data.length) { grid.innerHTML = '<div class="empty-cards"><div class="eic">' + Icon('search') + '</div><p>Sonuç bulunamadı.</p></div>'; return; }
   grid.innerHTML = data.map(c => `
     <a class="member-card" href="${escapeHtml(companyDetailUrl(c.id))}">
-      <div class="mc-top"><div class="mc-avatar">${Icon(resolveCompanyIcon(c.icon ?? c.emoji))}</div><div><div class="mc-name">${escapeHtml(c.name)}${c.demo?' <span style="font-size:.6rem;font-weight:700;color:var(--y);border:1px solid rgba(249,199,79,.35);padding:1px 5px;border-radius:100px;vertical-align:middle;">DEMO</span>':''}</div><div class="mc-loc">${Icon('pin')} ${escapeHtml(c.il||'—')} / ${escapeHtml(c.ilce||'—')}</div></div></div>
+      <div class="mc-top"><div class="mc-avatar">${Icon(resolveCompanyIcon(c.icon))}</div><div><div class="mc-name">${escapeHtml(c.name)}${c.isDemo?' <span style="font-size:.6rem;font-weight:700;color:var(--y);border:1px solid rgba(249,199,79,.35);padding:1px 5px;border-radius:100px;vertical-align:middle;">DEMO</span>':''}</div><div class="mc-loc">${Icon('pin')} ${escapeHtml(c.il||'—')} / ${escapeHtml(c.ilce||'—')}</div></div></div>
       <div><span class="mc-sector">${escapeHtml(c.sector||'Sektör')}</span></div>
       <div class="mc-tags">${(c.inputs||[]).slice(0,2).map(t=>`<span class="mc-tag in">${Icon('component')} ${escapeHtml(t)}</span>`).join('')}${(c.outputs||[]).slice(0,2).map(t=>`<span class="mc-tag out">${Icon('recycle')} ${escapeHtml(t)}</span>`).join('')}</div>
       <div class="mc-footer"><div class="mc-emission">%${escapeHtml(c.emission||0)} <span style="font-size:.68rem;font-weight:400;color:rgba(255,255,255,.35)">emisyon azaltımı</span></div><div class="mc-date">${escapeHtml(c.date)}</div></div>
@@ -130,31 +129,9 @@ function buildGraph() {
   if (!companies.length) return;
 
   const nodes = companies.map(c => ({...c}));
-  const edges = [], edgeSet = new Set();
-
-  function addEdge(src, tgt, label, eff, km, type = 'sector') {
-    const key = [src,tgt].sort().join('|');
-    if (edgeSet.has(key)) return;
-    edgeSet.add(key);
-    edges.push({ source:src, target:tgt, label, eff, km, type });
-  }
-
-  nodes.forEach(consumer => {
-    (consumer.inputs||[]).forEach(inp => {
-      const producers = nodes.filter(n => n.id !== consumer.id && (n.outputs||[]).includes(inp));
-      producers.sort((a,b) => (a.il === consumer.il ? 0 : 1) - (b.il === consumer.il ? 0 : 1));
-      producers.forEach((prod,i) => addEdge(prod.id, consumer.id, inp, i===0 && producers.length>1, haversine(prod.il, consumer.il), 'waste'));
-    });
-  });
-  nodes.forEach((a,i) => {
-    nodes.forEach((b,j) => {
-      if (j <= i) return;
-      if (a.sector && b.sector && a.sector === b.sector) addEdge(a.id, b.id, a.sector, false, haversine(a.il, b.il));
-    });
-  });
-
-  let minKm = Infinity, nearestIds = new Set();
-  edges.forEach(e => { if (e.km !== null && e.km < minKm) { minKm = e.km; nearestIds = new Set([e.source, e.target]); } });
+  const edges = networkEdges.map(e => ({ ...e, km: e.reasons[0]?.km ?? null }));
+  const minKm = edges.reduce((km, e) => Math.min(km, e.km ?? Infinity), Infinity);
+  const nearestIds = new Set(edges.filter(e => e.km === minKm).flatMap(e => [e.fromId, e.toId]));
 
   const byCity = Object.create(null);
   nodes.forEach(n => { (byCity[n.il || '—'] = byCity[n.il || '—'] || []).push(n); });
@@ -174,12 +151,12 @@ function buildGraph() {
   const nodeById = new Map(nodes.map(n => [n.id, n]));
 
   edges.forEach(e => {
-    const s = nodeById.get(e.source), t = nodeById.get(e.target);
+    const s = nodeById.get(e.fromId), t = nodeById.get(e.toId);
     if (!s || !t) return;
-    const color = e.eff ? '#f9c74f' : e.type === 'sector' ? '#a78bfa' : '#52b788';
+    const near = e.km === minKm;
+    const color = near ? '#f9c74f' : '#52b788';
     const line = L.polyline([[s.lat,s.lon],[t.lat,t.lon]], {
-      color, weight: e.eff ? 3 : 2.2, opacity: .85,
-      dashArray: e.type === 'sector' ? '7,5' : null
+      color, weight: near ? 3 : 2.2, opacity: .85
     }).addTo(edgeLayer);
     if (e.km !== null) line.bindTooltip(e.km + ' km', { permanent:true, direction:'center', className:'dist-tooltip' });
   });
@@ -187,12 +164,12 @@ function buildGraph() {
   nodes.forEach(d => {
     const isNear = nearestIds.has(d.id);
     const shortName = d.name.length > 18 ? d.name.slice(0,16) + '…' : d.name;
-    const html = `<div class="cm-wrap">${isNear ? '<div class="cm-ring"></div>' : ''}<div class="cm-core${isNear?' nearest':''}">${Icon(resolveCompanyIcon(d.icon ?? d.emoji))}</div><div class="cm-label${d.demo?' cm-demo':''}">${escapeHtml(shortName)}${d.demo?' · demo':''}</div></div>`;
+    const html = `<div class="cm-wrap">${isNear ? '<div class="cm-ring"></div>' : ''}<div class="cm-core${isNear?' nearest':''}">${Icon(resolveCompanyIcon(d.icon))}</div><div class="cm-label${d.isDemo?' cm-demo':''}">${escapeHtml(shortName)}${d.isDemo?' · demo':''}</div></div>`;
     const icon = L.divIcon({ className:'company-marker', html, iconSize:[36,54], iconAnchor:[18,18] });
     const marker = L.marker([d.lat, d.lon], { icon, riseOnHover:true }).addTo(markerLayer);
 
     marker.on('mouseover', () => {
-      document.getElementById('tt-name').textContent   = d.name + (d.demo ? ' (Demo)' : '');
+      document.getElementById('tt-name').textContent   = d.name + (d.isDemo ? ' (Demo)' : '');
       document.getElementById('tt-loc').textContent    = (d.il||'—')+' / '+(d.ilce||'—');
       document.getElementById('tt-sector').textContent = d.sector||'—';
       document.getElementById('tt-date').textContent   = d.date||'—';
@@ -211,7 +188,4 @@ function buildGraph() {
 }
 
 init();
-window.addEventListener('focus', async () => {
-  allCompanies = await Companies.getAll();
-  updateStats(); populateFilters(); renderCards(); buildGraph();
-});
+window.addEventListener('focus', refreshNetwork);

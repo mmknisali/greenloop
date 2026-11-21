@@ -116,6 +116,8 @@ def main():
     check("object-valued fields are 400, not a server error", s == 400 and p.get("ok") is False, (s, p))
 
     s, p = guest.call("GET", "/companies.php?action=all")
+    companies = {c["id"]: c for c in p.get("data", [])}
+    check("seed is visible via public API", len([c for c in companies.values() if c.get("isDemo")]) == 20)
     found = [c for c in (p.get("data") or []) if c.get("id") == cid]
     check("public list contains company", len(found) == 1, (s, p.get("ok")))
     if found:
@@ -123,6 +125,25 @@ def main():
         check("company emission clamped and icon mapped", c.get("emission") == 100 and c.get("icon") == "factory", c)
         check("company carries tags", sorted(c.get("inputs", [])) == ["boya", "pamuk"]
               and c.get("outputs") == ["atik kumas"], c.get("inputs"))
+
+    s, p = guest.call("GET", "/matches.php?" + urllib.parse.urlencode({
+        "action": "search", "waste": "  PLASTİK\u00a0 atik ", "type": "input"}))
+    normalized = next((hit for hit in p.get("data", []) if hit["company"]["id"] == "demo-1"), {})
+    check("tag search normalizes Turkish case, spacing and diacritics", s == 200 and
+          normalized.get("reasons", [{}])[0].get("to") == "Plastik Atık", (s, p))
+    s, p = guest.call("GET", "/matches.php?action=for_company&id=demo-8")
+    matches = p.get("data", [])
+    scores = [m["score"] for m in matches]
+    check("real seed pair ranked first by multiple overlapping materials", s == 200 and
+          len(scores) >= 2 and scores == sorted(scores, reverse=True) and scores[0] > scores[1] and
+          matches[0]["company"]["id"] == "demo-17" and len(matches[0]["reasons"]) == 2, (s, p))
+    s, p = guest.call("GET", "/matches.php?action=network")
+    edges = (p.get("data") or {}).get("edges", [])
+    check("network edges are actual output-to-input overlaps, not sector-only", s == 200 and bool(edges) and
+          any(e["fromId"] == "demo-8" and e["toId"] == "demo-1" for e in edges) and
+          all(e["fromId"] != e["toId"] and e["reasons"] and all(
+              r["from"] in companies[e["fromId"]]["outputs"] and r["to"] in companies[e["toId"]]["inputs"]
+              for r in e["reasons"]) for e in edges), (s, len(edges)))
 
     s, p = guest.call("GET", f"/companies.php?action=get&id={urllib.parse.quote(cid or '')}")
     check("get company by id preserves raw markup", p.get("ok") is True and (p.get("data") or {}).get("name") == company["name"], (s, p))

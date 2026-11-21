@@ -1,24 +1,4 @@
 <?php
-require __DIR__ . '/config.php';
-
-$action = $_GET['action'] ?? '';
-$method = match ($action) {
-    'add' => 'POST', 'delete' => 'DELETE', 'all', 'get', 'mine' => 'GET',
-    default => err('Geçersiz işlem.', 404),
-};
-if ($_SERVER['REQUEST_METHOD'] !== $method) {
-    header('Allow: ' . $method);
-    err('Geçersiz istek yöntemi.', 405);
-}
-
-match ($action) {
-    'all'    => getAll(),
-    'get'    => getOne(),
-    'mine'   => getMine(),
-    'add'    => addCompany(),
-    'delete' => deleteCompany(),
-    default  => err('Geçersiz işlem.', 404),
-};
 
 /**
  * Shapes company rows for the API, attaching their tags. Tags for the whole
@@ -47,6 +27,8 @@ function buildCompanies(array $rows, bool $withOwnerContact): array {
         $row['desc']    = $row['description'] ?? '';
         $row['date']    = $row['created_at'] ? date('d.m.Y', strtotime($row['created_at'])) : '';
         $row['userId']  = $row['user_id'];
+        $row['isDemo']  = (bool) ($row['is_demo'] ?? false);
+        unset($row['is_demo']);
         if (!$withOwnerContact) {
             unset($row['owner_name'], $row['owner_email']);
         }
@@ -54,9 +36,14 @@ function buildCompanies(array $rows, bool $withOwnerContact): array {
     }, $rows);
 }
 
-function getAll(): void {
+function loadPublicCompanies(): array {
+    require_once __DIR__ . '/config.php';
     $rows = db()->query('SELECT * FROM companies ORDER BY created_at DESC')->fetchAll();
-    resp(['ok' => true, 'data' => buildCompanies($rows, false)]);
+    return buildCompanies($rows, false);
+}
+
+function getAll(): void {
+    resp(['ok' => true, 'data' => loadPublicCompanies()]);
 }
 
 function getOne(): void {
@@ -170,4 +157,26 @@ function deleteCompany(): void {
 
     db()->prepare('DELETE FROM companies WHERE id = ?')->execute([$id]);
     resp(['ok' => true]);
+}
+
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+    require_once __DIR__ . '/config.php';
+
+    $action = $_GET['action'] ?? '';
+    $method = match ($action) {
+        'add' => 'POST', 'delete' => 'DELETE', 'all', 'get', 'mine' => 'GET',
+        default => err('Geçersiz işlem.', 404),
+    };
+    if ($_SERVER['REQUEST_METHOD'] !== $method) {
+        header('Allow: ' . $method);
+        err('Geçersiz istek yöntemi.', 405);
+    }
+
+    match ($action) {
+        'all'    => getAll(),
+        'get'    => getOne(),
+        'mine'   => getMine(),
+        'add'    => addCompany(),
+        'delete' => deleteCompany(),
+    };
 }

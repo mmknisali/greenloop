@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS companies (
   icon        VARCHAR(50)  DEFAULT 'factory',
   owner_name  VARCHAR(190) DEFAULT '',
   owner_email VARCHAR(190) DEFAULT '',
+  is_demo     TINYINT(1)   NOT NULL DEFAULT 0,
   created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT chk_companies_emission CHECK (emission BETWEEN 0 AND 100),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -91,6 +92,11 @@ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.COLUMNS
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'companies' AND COLUMN_NAME = 'emoji') THEN
     ALTER TABLE companies CHANGE COLUMN emoji icon VARCHAR(50) DEFAULT 'factory';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'companies' AND COLUMN_NAME = 'is_demo') THEN
+    ALTER TABLE companies ADD COLUMN is_demo TINYINT(1) NOT NULL DEFAULT 0 AFTER owner_email;
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.TABLE_CONSTRAINTS

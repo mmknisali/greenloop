@@ -7,6 +7,7 @@ let
       sleep 1
     done
     ${pkgs.mariadb}/bin/mariadb -u root < ${./schema.sql}
+    ${pkgs.mariadb}/bin/mariadb -u root < ${./seed.sql}
   '';
 in
 {
@@ -16,7 +17,7 @@ in
   # ── Languages ──
   languages.php.enable = true;
   languages.php.version = "8.2";
-  languages.php.extensions = [ "pdo_mysql" "mysqli" ];
+  languages.php.extensions = [ "pdo_mysql" "mysqli" "mbstring" ];
 
   # ── Packages ──
   packages = [ pkgs.git pkgs.mariadb pkgs.curl ];
@@ -41,7 +42,7 @@ in
 
   # ── Tasks ──
   tasks."greenloop:init-db".exec = "${initDb}";
-  tasks."greenloop:init-db".description = "Initialize MySQL database with GreenLoop schema";
+  tasks."greenloop:init-db".description = "Initialize MySQL database with GreenLoop schema and demo data";
 
   # ── Shell hook ──
   enterShell = ''
@@ -54,10 +55,11 @@ in
     echo "    - MySQL:             localhost:3306 (root, no password)"
     echo ""
     echo "  Tasks:"
-    echo "    devenv tasks run greenloop:init-db   - Initialize database with schema"
+    echo "    devenv tasks run greenloop:init-db   - Initialize database with schema and demo data"
     echo ""
     echo "  Files:"
     echo "    schema.sql           - Database schema"
+    echo "    seed.sql             - Demo companies and tags"
     echo "    api/                 - PHP API backend"
     echo "================================================"
     echo ""
