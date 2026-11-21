@@ -10,7 +10,8 @@ document.getElementById('btn-register').innerHTML = 'Hesap Oluştur ' + Icon('ar
 if (new URLSearchParams(location.search).get('tab') === 'register') switchTab('register');
 
 (async () => {
-  if (await navUser) location.href = 'dashboard.html';
+  const user = await navUser;
+  if (user && !user.previewAdmin) location.href = 'dashboard.html';
 })();
 
 function switchTab(t) {

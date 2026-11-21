@@ -7,10 +7,10 @@ const navUser = Auth.getCurrent();
   const templates = {
     home: () => logo('nav-logo') + links([
       ['#about', 'Proje'], ['network.html', 'Atık Ağı'], ['#chat-section', 'AI Asistan'],
-    ]) + '<div class="nav-right"><a href="login.html" class="nav-btn outline">Giriş Yap</a><a href="login.html?tab=register" class="nav-btn">Hesap Oluştur</a></div>',
+    ]) + '<div class="nav-right"><a href="login.html" class="nav-btn outline" data-preview-dashboard>Giriş Yap</a><a href="login.html?tab=register" class="nav-btn" data-preview-dashboard>Hesap Oluştur</a></div>',
     network: () => logo('nav-logo') + links([
       ['index.html', 'Ana Sayfa'], ['network.html', 'Atık Ağı', true],
-    ]) + '<div class="nav-right"><a href="login.html" class="nav-login">Giriş Yap</a><a href="login.html" class="nav-cta">Şirket Ekle</a></div>',
+    ]) + '<div class="nav-right"><a href="login.html" class="nav-login" data-preview-dashboard>Giriş Yap</a><a href="login.html" class="nav-cta" data-preview-dashboard>Şirket Ekle</a></div>',
     detail: () => logo('nav-logo') + `<a class="nav-back" href="network.html">${Icon('arrowLeft')} Atık Ağına Dön</a>`,
     login: () => logo('brand'),
     sidebar: () => logo('sb-brand'),
@@ -26,12 +26,25 @@ const navUser = Auth.getCurrent();
       sync();
     }
     if (variant === 'home' || variant === 'network') navUser.then(user => {
-      if (!user) return;
+      if (!user || user.previewAdmin) return;
       const home = variant === 'home';
       el.querySelector('.nav-right').innerHTML = `
         <span class="nav-user">${esc(user.ad)} ${esc(user.soyad)}</span>
         <a href="dashboard.html" class="${home ? 'nav-btn' : 'nav-cta'}">Panel${home ? ' ' + Icon('arrowRight') : ''}</a>`;
-      if (home && user.previewAdmin && location.pathname.endsWith('/')) location.replace('dashboard.html');
+    });
+  });
+
+  document.querySelectorAll('a[data-preview-dashboard]').forEach(link => {
+    const followWhenReady = async event => {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      await navUser;
+      location.href = link.href;
+    };
+    link.addEventListener('click', followWhenReady);
+    navUser.then(user => {
+      if (user?.previewAdmin) link.href = 'dashboard.html';
+      link.removeEventListener('click', followWhenReady);
     });
   });
 
