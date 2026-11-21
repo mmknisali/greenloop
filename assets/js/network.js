@@ -273,11 +273,26 @@ function buildGraph() {
     marker.on('click', openDetail);
   });
 
+  const suppliers = new Map();
+  networkEdges.forEach(e => {
+    (e.reasons || []).forEach(r => {
+      const key = e.toId + '|' + r.to;
+      if (!suppliers.has(key)) suppliers.set(key, []);
+      suppliers.get(key).push(e);
+    });
+  });
+  const efficientEdges = new Set();
+  suppliers.forEach(list => {
+    if (list.length < 2) return;
+    list.sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
+    efficientEdges.add(list[0]);
+  });
+
   networkEdges.forEach(e => {
     const from = markersById.get(e.fromId), to = markersById.get(e.toId);
-    const near = e.km === minKm;
+    const eff = efficientEdges.has(e);
     const line = L.polyline([from.getLatLng(), to.getLatLng()], {
-      color: near ? 'var(--y)' : 'var(--gb)', weight: near ? 3 : 2.2, opacity: .85
+      color: eff ? '#f9c74f' : '#52b788', weight: eff ? 3 : 2.2, opacity: .85
     }).addTo(edgeLayer);
     if (e.km !== null) line.bindTooltip(`${e.km} km`, { permanent:true, direction:'center', className:'dist-tooltip' });
     graphLines.push({ line, from, to });
