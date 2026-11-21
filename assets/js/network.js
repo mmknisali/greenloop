@@ -1,6 +1,8 @@
 applyIcons();
 let allCompanies = [];
 let networkEdges = [];
+let matchesAvailable = false;
+const bestMatches = new Map();
 
 const IL_COORDS = {
   'Adana':{lat:37.00,lon:35.32},'Adıyaman':{lat:37.76,lon:38.27},'Afyonkarahisar':{lat:38.75,lon:30.54},
@@ -33,22 +35,51 @@ const IL_COORDS = {
 };
 
 async function init() {
-  const cu = await Auth.getCurrent();
-  if (cu) {
-    document.getElementById('nav-right').innerHTML =
-      `<span class="nav-user">${escapeHtml(cu.ad)} ${escapeHtml(cu.soyad)}</span><a href="dashboard.html" class="nav-cta">Panel</a>`;
-  }
   await refreshNetwork();
 }
 
 async function refreshNetwork() {
   const [companies, result] = await Promise.all([Companies.getAll(), Matches.network()]);
   allCompanies = companies;
-  networkEdges = result.data?.edges ?? [];
+  matchesAvailable = Array.isArray(result.data?.edges);
+  indexMatches(matchesAvailable ? result.data.edges : []);
   updateStats();
   populateFilters();
   renderCards();
   buildGraph();
+}
+
+function indexMatches(edges) {
+  const companies = new Map(allCompanies.map(c => [c.id, c]));
+  bestMatches.clear();
+  networkEdges = [];
+  for (const edge of edges) {
+    const from = companies.get(edge.fromId);
+    const to = companies.get(edge.toId);
+    if (!from || !to) continue;
+    const reasons = Array.isArray(edge.reasons) ? edge.reasons : [];
+    const km = Number.isFinite(reasons[0]?.km) ? reasons[0].km : null;
+    networkEdges.push({ ...edge, km });
+    for (const [company, partner, role] of [[from, to, 'alıcı'], [to, from, 'sağlayıcı']]) {
+      if (!bestMatches.has(company.id) || edge.score > bestMatches.get(company.id).score) {
+        bestMatches.set(company.id, { score: edge.score, reasons, km, partner, role });
+      }
+    }
+  }
+}
+
+function matchSummary(id) {
+  const match = bestMatches.get(id);
+  if (!match) return `<p class="match-summary">${matchesAvailable ? 'Ağda eşleşme yok.' : 'Eşleşme bilgisi yüklenemedi.'}</p>`;
+  const reasons = match.reasons.map(({ tag, from, to }) => {
+    const reason = from && to && from !== to ? `${from} → ${to}` : from || to || tag;
+    return `<li>${escapeHtml(reason)}</li>`;
+  }).join('');
+  return `<div class="match-summary">
+    <strong>En iyi eşleşme: ${escapeHtml(match.score)} puan</strong>
+    <p>${escapeHtml(match.partner.name)} (${match.role})${match.km === null ? '' : ` · ${match.km} km`}</p>
+    ${reasons ? `<ul aria-label="Eşleşme nedenleri">${reasons}</ul>` : ''}
+  </div>`;
 }
 
 function updateStats() {
@@ -62,8 +93,11 @@ function populateFilters() {
   const cEl     = document.getElementById('city-filter');
   const sectors = [...new Set(allCompanies.map(c => c.sector).filter(Boolean))].sort();
   const cities  = [...new Set(allCompanies.map(c => c.il).filter(Boolean))].sort();
+  const sector = sEl.value, city = cEl.value;
   sEl.replaceChildren(new Option('Tüm Sektörler', ''), ...sectors.map(s => new Option(s, s)));
   cEl.replaceChildren(new Option('Tüm Şehirler', ''), ...cities.map(c => new Option(c, c)));
+  if (sectors.includes(sector)) sEl.value = sector;
+  if (cities.includes(city)) cEl.value = city;
 }
 
 function renderCards() {
@@ -80,112 +114,207 @@ function renderCards() {
   if (!data.length) { grid.innerHTML = '<div class="empty-cards"><div class="eic">' + Icon('search') + '</div><p>Sonuç bulunamadı.</p></div>'; return; }
   grid.innerHTML = data.map(c => `
     <a class="member-card" href="${escapeHtml(companyDetailUrl(c.id))}">
-      <div class="mc-top"><div class="mc-avatar">${Icon(resolveCompanyIcon(c.icon))}</div><div><div class="mc-name">${escapeHtml(c.name)}${c.isDemo?' <span style="font-size:.6rem;font-weight:700;color:var(--y);border:1px solid rgba(249,199,79,.35);padding:1px 5px;border-radius:100px;vertical-align:middle;">DEMO</span>':''}</div><div class="mc-loc">${Icon('pin')} ${escapeHtml(c.il||'—')} / ${escapeHtml(c.ilce||'—')}</div></div></div>
+      <div class="mc-top"><div class="mc-avatar">${Icon(resolveCompanyIcon(c.icon))}</div><div><div class="mc-name">${escapeHtml(c.name)}${c.isDemo?' <span class="mc-demo">DEMO</span>':''}</div><div class="mc-loc">${Icon('pin')} ${escapeHtml(c.il||'—')} / ${escapeHtml(c.ilce||'—')}</div></div></div>
       <div><span class="mc-sector">${escapeHtml(c.sector||'Sektör')}</span></div>
       <div class="mc-tags">${(c.inputs||[]).slice(0,2).map(t=>`<span class="mc-tag in">${Icon('component')} ${escapeHtml(t)}</span>`).join('')}${(c.outputs||[]).slice(0,2).map(t=>`<span class="mc-tag out">${Icon('recycle')} ${escapeHtml(t)}</span>`).join('')}</div>
-      <div class="mc-footer"><div class="mc-emission">%${escapeHtml(c.emission||0)} <span style="font-size:.68rem;font-weight:400;color:rgba(255,255,255,.35)">emisyon azaltımı</span></div><div class="mc-date">${escapeHtml(c.date)}</div></div>
+      ${matchSummary(c.id)}
+      <div class="mc-footer"><div class="mc-emission">%${escapeHtml(c.emission||0)} <span class="mc-emission-label">emisyon azaltımı</span></div><div class="mc-date">${escapeHtml(c.date)}</div></div>
     </a>`).join('');
 }
 
-['search-input','sector-filter','city-filter'].forEach(id => document.getElementById(id).addEventListener('input', renderCards));
+const filters = document.querySelector('.filters');
+filters.addEventListener('input', renderCards);
+filters.addEventListener('submit', event => event.preventDefault());
 
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-    if (btn.dataset.tab === 'graph') buildGraph();
+const tabs = [...document.querySelectorAll('.tab-btn')];
+function selectTab(tab) {
+  tabs.forEach(btn => {
+    const active = btn === tab;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active);
+    btn.tabIndex = active ? 0 : -1;
+    document.getElementById(btn.getAttribute('aria-controls')).classList.toggle('active', active);
+  });
+  if (tab.dataset.tab !== 'graph') hideTooltip();
+}
+
+tabs.forEach((tab, index) => {
+  tab.addEventListener('click', () => selectTab(tab));
+  tab.addEventListener('keydown', event => {
+    const key = event.key;
+    let next;
+    if (key === 'Home') next = tabs[0];
+    else if (key === 'End') next = tabs.at(-1);
+    else if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      next = tabs[(index + (key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+    } else return;
+    event.preventDefault();
+    selectTab(next);
+    next.focus();
   });
 });
 
-/* Gerçek harita: CARTO'nun koyu temalı OSM karo katmanı üzerinde
-   şirketleri gerçek il koordinatlarında gösteriyoruz (SVG çizim değil). */
 const INIT_CENTER = [39.05, 35.4];
 const INIT_ZOOM   = 6;
-const map = L.map('graph-map', { zoomControl:false, attributionControl:true, minZoom:5, maxZoom:12 })
-  .setView(INIT_CENTER, INIT_ZOOM);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_513u_1_b4ba91f6a7f669d53a1f6eca', {
-  attribution:'&copy; OpenStreetMap katkıda bulunanlar &copy; CARTO',
-  subdomains:'abcd'
-}).addTo(map);
-
-const edgeLayer   = L.layerGroup().addTo(map);
-const markerLayer = L.layerGroup().addTo(map);
-
-document.getElementById('gc-in').onclick    = () => map.zoomIn();
-document.getElementById('gc-out').onclick   = () => map.zoomOut();
-document.getElementById('gc-reset').onclick = () => map.setView(INIT_CENTER, INIT_ZOOM);
-
+const graphWrap = document.getElementById('graph-wrap');
+const graphMap = document.getElementById('graph-map');
 const tooltip = document.getElementById('g-tooltip');
-map.on('click', () => tooltip.classList.remove('show'));
+const provinceGroups = new Map();
+const graphLines = [];
+let map, edgeLayer, markerLayer, tooltipMarker;
+
+function initMap() {
+  let hasLeafletStyles = false;
+  try {
+    // An unsuccessful stylesheet request can still leave a sheet with no readable rules.
+    hasLeafletStyles = Boolean(document.getElementById('leaflet-css').sheet?.cssRules.length);
+  } catch (_) {}
+  if (typeof L === 'undefined' || !hasLeafletStyles) {
+    document.getElementById('graph-status').textContent = 'Harita yüklenemedi. Şirketler sekmesinden ağı inceleyebilirsiniz.';
+    return;
+  }
+  graphMap.hidden = false;
+  map = L.map(graphMap, { zoomControl:false, trackResize:false, minZoom:5, maxZoom:12 }).setView(INIT_CENTER, INIT_ZOOM);
+  // A graph tab becoming visible also resizes its container; never measure it while hidden.
+  new ResizeObserver(() => {
+    if (graphMap.clientWidth && graphMap.clientHeight) map.invalidateSize();
+  }).observe(graphMap);
+
+  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> katkıda bulunanlar',
+    className:'graph-basemap'
+  });
+  const mapNote = document.getElementById('graph-map-note');
+  let loadedTile = false;
+  tiles.on('loading', () => { loadedTile = false; });
+  tiles.on('tileload', () => {
+    loadedTile = true;
+    mapNote.hidden = true;
+  });
+  tiles.on('load', () => { mapNote.hidden = loadedTile; });
+  tiles.addTo(map);
+
+  edgeLayer = L.layerGroup().addTo(map);
+  markerLayer = L.layerGroup().addTo(map);
+  ['graph-tip', 'graph-legend', 'graph-controls'].forEach(id => { document.getElementById(id).hidden = false; });
+  document.getElementById('gc-in').onclick    = () => map.zoomIn();
+  document.getElementById('gc-out').onclick   = () => map.zoomOut();
+  document.getElementById('gc-reset').onclick = () => map.setView(INIT_CENTER, INIT_ZOOM);
+  map.on('click', hideTooltip);
+  map.on('zoomend', positionGraph);
+  map.on('moveend', positionTooltip);
+  graphWrap.addEventListener('keydown', event => {
+    if (event.key === 'Escape') hideTooltip();
+  });
+}
+
+function positionGraph() {
+  const zoom = map.getZoom();
+  for (const { center, markers } of provinceGroups.values()) {
+    if (markers.length < 2) continue;
+    // Spread in screen pixels, then reproject at each zoom so the markers stay apart.
+    const origin = map.project(center, zoom);
+    const radius = 58 / (2 * Math.sin(Math.PI / markers.length));
+    markers.forEach((marker, index) => {
+      const angle = index * 2 * Math.PI / markers.length - Math.PI / 2;
+      const point = origin.add([Math.cos(angle) * radius, Math.sin(angle) * radius]);
+      marker.setLatLng(map.unproject(point, zoom));
+    });
+  }
+  graphLines.forEach(({ line, from, to }) => {
+    line.setLatLngs([from.getLatLng(), to.getLatLng()]);
+    line.getTooltip()?.setLatLng(line.getCenter());
+  });
+  positionTooltip();
+}
 
 function buildGraph() {
+  if (!map) return;
+  hideTooltip();
   edgeLayer.clearLayers();
   markerLayer.clearLayers();
+  provinceGroups.clear();
+  graphLines.length = 0;
 
-  const companies = allCompanies;
-  document.getElementById('graph-empty').style.display = companies.length ? 'none' : 'flex';
-  if (!companies.length) return;
+  document.getElementById('graph-empty').hidden = allCompanies.length > 0;
+  document.getElementById('graph-status').textContent = 'Ağda henüz şirket yok.';
+  const minKm = networkEdges.reduce((km, e) => Math.min(km, e.km ?? Infinity), Infinity);
+  const nearestIds = new Set(networkEdges.filter(e => e.km === minKm).flatMap(e => [e.fromId, e.toId]));
+  const markersById = new Map();
 
-  const nodes = companies.map(c => ({...c}));
-  const edges = networkEdges.map(e => ({ ...e, km: e.reasons[0]?.km ?? null }));
-  const minKm = edges.reduce((km, e) => Math.min(km, e.km ?? Infinity), Infinity);
-  const nearestIds = new Set(edges.filter(e => e.km === minKm).flatMap(e => [e.fromId, e.toId]));
-
-  const byCity = Object.create(null);
-  nodes.forEach(n => { (byCity[n.il || '—'] = byCity[n.il || '—'] || []).push(n); });
-  Object.entries(byCity).forEach(([il, group]) => {
-    const coords = Object.hasOwn(IL_COORDS, il) ? IL_COORDS[il] : { lat: 39.0, lon: 35.5 };
-    if (group.length === 1) {
-      group[0].lat = coords.lat; group[0].lon = coords.lon;
-    } else {
-      const r = 0.06;
-      group.forEach((n, i) => {
-        const ang = (i / group.length) * Math.PI * 2 - Math.PI / 2;
-        n.lat = coords.lat + Math.sin(ang) * r;
-        n.lon = coords.lon + (Math.cos(ang) * r) / Math.cos(coords.lat * Math.PI / 180);
-      });
+  allCompanies.forEach(d => {
+    const province = Object.hasOwn(IL_COORDS, d.il) ? d.il : '';
+    if (!provinceGroups.has(province)) {
+      const coords = IL_COORDS[province];
+      provinceGroups.set(province, { center: coords ? [coords.lat, coords.lon] : INIT_CENTER, markers: [] });
     }
-  });
-  const nodeById = new Map(nodes.map(n => [n.id, n]));
-
-  edges.forEach(e => {
-    const s = nodeById.get(e.fromId), t = nodeById.get(e.toId);
-    if (!s || !t) return;
-    const near = e.km === minKm;
-    const color = near ? '#f9c74f' : '#52b788';
-    const line = L.polyline([[s.lat,s.lon],[t.lat,t.lon]], {
-      color, weight: near ? 3 : 2.2, opacity: .85
-    }).addTo(edgeLayer);
-    if (e.km !== null) line.bindTooltip(e.km + ' km', { permanent:true, direction:'center', className:'dist-tooltip' });
-  });
-
-  nodes.forEach(d => {
+    const group = provinceGroups.get(province);
     const isNear = nearestIds.has(d.id);
     const shortName = d.name.length > 18 ? d.name.slice(0,16) + '…' : d.name;
     const html = `<div class="cm-wrap">${isNear ? '<div class="cm-ring"></div>' : ''}<div class="cm-core${isNear?' nearest':''}">${Icon(resolveCompanyIcon(d.icon))}</div><div class="cm-label${d.isDemo?' cm-demo':''}">${escapeHtml(shortName)}${d.isDemo?' · demo':''}</div></div>`;
     const icon = L.divIcon({ className:'company-marker', html, iconSize:[36,54], iconAnchor:[18,18] });
-    const marker = L.marker([d.lat, d.lon], { icon, riseOnHover:true }).addTo(markerLayer);
+    const marker = L.marker(group.center, { icon, riseOnHover:true }).addTo(markerLayer);
+    group.markers.push(marker);
+    markersById.set(d.id, marker);
 
-    marker.on('mouseover', () => {
-      document.getElementById('tt-name').textContent   = d.name + (d.isDemo ? ' (Demo)' : '');
-      document.getElementById('tt-loc').textContent    = (d.il||'—')+' / '+(d.ilce||'—');
-      document.getElementById('tt-sector').textContent = d.sector||'—';
-      document.getElementById('tt-date').textContent   = d.date||'—';
-      document.getElementById('tt-tags').innerHTML = (d.inputs||[]).slice(0,3).map(t=>`<span class="tt-tag in">${escapeHtml(t)}</span>`).join('')+(d.outputs||[]).slice(0,3).map(t=>`<span class="tt-tag out">${escapeHtml(t)}</span>`).join('');
-      tooltip.classList.add('show');
+    const element = marker.getElement();
+    element.setAttribute('role', 'link');
+    element.setAttribute('aria-label', d.name + (d.isDemo ? ' (Demo)' : ''));
+    element.addEventListener('focus', () => showTooltip(marker, d));
+    element.addEventListener('blur', () => { if (tooltipMarker === marker) hideTooltip(); });
+    const openDetail = () => { location.href = companyDetailUrl(d.id); };
+    element.addEventListener('keydown', event => {
+      if (event.key === 'Enter') openDetail();
     });
-    marker.on('mousemove', e => {
-      const wrap = document.getElementById('graph-wrap').getBoundingClientRect();
-      let x = e.originalEvent.clientX - wrap.left + 16, y = e.originalEvent.clientY - wrap.top - 10;
-      if (x + 270 > wrap.width) x -= 280;
-      tooltip.style.left = x+'px'; tooltip.style.top = y+'px';
+    marker.on('mouseover', () => showTooltip(marker, d));
+    marker.on('mouseout', () => {
+      if (tooltipMarker === marker && element !== document.activeElement) hideTooltip();
     });
-    marker.on('mouseout', () => tooltip.classList.remove('show'));
-    marker.on('click', () => { location.href = companyDetailUrl(d.id); });
+    marker.on('click', openDetail);
   });
+
+  networkEdges.forEach(e => {
+    const from = markersById.get(e.fromId), to = markersById.get(e.toId);
+    const near = e.km === minKm;
+    const line = L.polyline([from.getLatLng(), to.getLatLng()], {
+      color: near ? 'var(--y)' : 'var(--gb)', weight: near ? 3 : 2.2, opacity: .85
+    }).addTo(edgeLayer);
+    if (e.km !== null) line.bindTooltip(`${e.km} km`, { permanent:true, direction:'center', className:'dist-tooltip' });
+    graphLines.push({ line, from, to });
+  });
+  positionGraph();
 }
 
+function showTooltip(marker, company) {
+  hideTooltip();
+  tooltipMarker = marker;
+  document.getElementById('tt-name').textContent = company.name + (company.isDemo ? ' (Demo)' : '');
+  document.getElementById('tt-loc').textContent = (company.il||'—')+' / '+(company.ilce||'—');
+  document.getElementById('tt-sector').textContent = company.sector||'—';
+  document.getElementById('tt-date').textContent = company.date||'—';
+  document.getElementById('tt-tags').innerHTML = (company.inputs||[]).slice(0,3).map(t=>`<span class="tt-tag in">${escapeHtml(t)}</span>`).join('')+(company.outputs||[]).slice(0,3).map(t=>`<span class="tt-tag out">${escapeHtml(t)}</span>`).join('');
+  document.getElementById('tt-match').innerHTML = matchSummary(company.id);
+  tooltip.classList.add('show');
+  marker.getElement().setAttribute('aria-describedby', tooltip.id);
+  positionTooltip();
+}
+
+function hideTooltip() {
+  tooltipMarker?.getElement()?.removeAttribute('aria-describedby');
+  tooltipMarker = null;
+  tooltip.classList.remove('show');
+}
+
+function positionTooltip() {
+  if (!tooltipMarker) return;
+  const { x, y } = map.latLngToContainerPoint(tooltipMarker.getLatLng());
+  const { offsetWidth: width, offsetHeight: height } = tooltip;
+  const { clientWidth, clientHeight } = graphWrap;
+  const left = x + width + 30 > clientWidth ? x - width - 22 : x + 22;
+  tooltip.style.left = `${Math.max(8, Math.min(left, clientWidth - width - 8))}px`;
+  tooltip.style.top = `${Math.max(8, Math.min(y - 12, clientHeight - height - 8))}px`;
+}
+
+initMap();
 init();
 window.addEventListener('focus', refreshNetwork);

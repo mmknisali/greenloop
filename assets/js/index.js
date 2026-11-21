@@ -30,19 +30,6 @@ document.getElementById('feature-grid').innerHTML = [
     '<div class="feature-body"><strong>' + f[1] + '</strong><span>' + f[2] + '</span></div></div>';
 }).join('');
 
-(async () => {
-  const cu = await Auth.getCurrent();
-  if (cu) {
-    document.getElementById('nav-right').innerHTML = `
-      <span style="font-size:.82rem;color:var(--text-mid);">${escapeHtml(cu.ad)} ${escapeHtml(cu.soyad)}</span>
-      <a href="dashboard.html" class="nav-btn">Panel ${Icon('arrowRight')}</a>`;
-  }
-})();
-
-window.addEventListener('scroll', () => {
-  document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 40);
-});
-
 const obs = new IntersectionObserver(entries => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
 }, { threshold: .12 });
@@ -58,6 +45,10 @@ const barObs = new IntersectionObserver(entries => {
 document.querySelectorAll('.bar-fill').forEach(el => barObs.observe(el));
 
 function animateCounter(el, target) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    el.textContent = target;
+    return;
+  }
   const dur = 1400, t0 = performance.now();
   function step(t) {
     const p = Math.min((t - t0) / dur, 1);

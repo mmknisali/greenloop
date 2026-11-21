@@ -10,18 +10,7 @@
 </head>
 <body>
 
-<nav id="nav">
-  <a class="nav-logo" href="index.html">GreenLoop<span class="dot">.</span></a>
-  <ul class="nav-links">
-    <li><a href="#about">Proje</a></li>
-    <li><a href="network.html">Atık Ağı</a></li>
-    <li><a href="#chat-section">AI Asistan</a></li>
-  </ul>
-  <div class="nav-right" id="nav-right">
-    <a href="login.html" class="nav-btn outline">Giriş Yap</a>
-    <a href="login.html" class="nav-btn">Hesap Oluştur</a>
-  </div>
-</nav>
+<nav id="nav" data-nav="home" aria-label="Ana gezinme"></nav>
 
 <section id="hero">
   <div class="hero-bg-circles"><span></span><span></span><span></span></div>
@@ -69,7 +58,8 @@
         </div>
         <p id="chat-error" class="chat-error" role="alert"></p>
         <form class="chat-form" id="chat-form">
-          <textarea id="chat-textarea" class="chat-textarea" aria-label="Sorunuz" aria-describedby="chat-hint" placeholder="Sorunuzu yazın..." rows="1"></textarea>
+          <label class="sr-only" for="chat-textarea">Sorunuz</label>
+          <textarea id="chat-textarea" class="chat-textarea" aria-describedby="chat-hint" placeholder="Sorunuzu yazın..." rows="1" maxlength="1000"></textarea>
           <button type="submit" id="chat-send" class="chat-send-btn" aria-label="Gönder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button>
         </form>
         <p class="chat-hint" id="chat-hint">Enter ile gönder · Shift+Enter yeni satır</p>
@@ -122,7 +112,7 @@
     <p class="reveal" style="color:rgba(255,255,255,.7);font-size:1rem;line-height:1.8;max-width:520px;margin:0 auto 2rem;">Kayıtlı şirketleri, atık türlerini ve eşleşme fırsatlarını görün. Şirketinizi eklemek için hesap oluşturun.</p>
     <div class="join-actions reveal">
       <a href="network.html" class="btn-white" id="btn-network"></a>
-      <a href="login.html" class="btn-outline" id="btn-register"></a>
+      <a href="login.html?tab=register" class="btn-outline" id="btn-register"></a>
     </div>
   </div>
 </section>
@@ -133,6 +123,7 @@
 
 <script src="icons.js"></script>
 <script src="api.js"></script>
+<script src="assets/js/nav.js"></script>
 <script src="assets/js/index.js"></script>
 </body>
 </html>

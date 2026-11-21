@@ -7,9 +7,10 @@ document.getElementById('feature-list').innerHTML = [
 
 document.getElementById('btn-login').innerHTML    = 'Giriş Yap ' + Icon('arrowRight');
 document.getElementById('btn-register').innerHTML = 'Hesap Oluştur ' + Icon('arrowRight');
+if (new URLSearchParams(location.search).get('tab') === 'register') switchTab('register');
 
 (async () => {
-  if (await Auth.getCurrent()) location.href = 'dashboard.html';
+  if (await navUser) location.href = 'dashboard.html';
 })();
 
 function switchTab(t) {
@@ -21,7 +22,7 @@ function switchTab(t) {
 
 function showErr(id, msg) {
   const el = document.getElementById(id);
-  el.innerHTML = Icon('warning') + ' ' + msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  el.innerHTML = Icon('warning') + ' ' + esc(msg);
   el.style.display = 'block';
 }
 
@@ -64,7 +65,7 @@ async function doRegister() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
+  if (e.key !== 'Enter' || e.isComposing || !e.target.matches('input')) return;
   if (document.getElementById('login-form').style.display !== 'none') doLogin();
   else doRegister();
 });

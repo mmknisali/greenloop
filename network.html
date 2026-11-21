@@ -4,22 +4,12 @@
   <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>GreenLoop – Atık Ağı</title>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" id="leaflet-css" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous"/>
   <link rel="stylesheet" href="assets/css/shared.css" />
   <link rel="stylesheet" href="assets/css/network.css" />
 </head>
 <body>
-<nav>
-  <a class="nav-logo" href="index.html">GreenLoop<span class="dot">.</span></a>
-  <ul class="nav-links">
-    <li><a href="index.html">Ana Sayfa</a></li>
-    <li><a href="network.html" class="active">Atık Ağı</a></li>
-  </ul>
-  <div class="nav-right" id="nav-right">
-    <a href="login.html" class="nav-login">Giriş Yap</a>
-    <a href="login.html" class="nav-cta">Şirket Ekle</a>
-  </div>
-</nav>
+<nav data-nav="network" aria-label="Ana gezinme"></nav>
 <div class="page-hero">
   <div class="hero-inner">
     <div>
@@ -34,48 +24,61 @@
     </div>
   </div>
 </div>
-<div class="tabs-bar">
-  <button class="tab-btn" data-tab="members"><span data-icon="building" data-icon-class="tab-icon"></span> Şirketler</button>
-  <button class="tab-btn active" data-tab="graph"><span data-icon="network" data-icon-class="tab-icon"></span> Ağ Grafiği</button>
+<div class="tabs-bar" role="tablist" aria-label="Atık ağı görünümleri">
+  <button type="button" class="tab-btn" id="members-tab" data-tab="members" role="tab" aria-controls="tab-members" aria-selected="false" tabindex="-1"><span data-icon="building" data-icon-class="tab-icon"></span> Şirketler</button>
+  <button type="button" class="tab-btn active" id="graph-tab" data-tab="graph" role="tab" aria-controls="tab-graph" aria-selected="true"><span data-icon="network" data-icon-class="tab-icon"></span> Ağ Grafiği</button>
 </div>
-<div class="tab-content" id="tab-members">
-  <div class="filters">
-    <input class="filter-input" id="search-input" placeholder="Şirket adı veya şehir ara..."/>
-    <select class="filter-select" id="sector-filter"><option value="">Tüm Sektörler</option></select>
-    <select class="filter-select" id="city-filter"><option value="">Tüm Şehirler</option></select>
-  </div>
+<div class="tab-content" id="tab-members" role="tabpanel" aria-labelledby="members-tab">
+  <form class="filters" role="search" aria-label="Şirket filtreleri">
+    <div class="filter-field">
+      <label for="search-input">Şirket adı veya şehir</label>
+      <input class="filter-input" id="search-input" type="search" placeholder="Ara..."/>
+    </div>
+    <div class="filter-field">
+      <label for="sector-filter">Sektör</label>
+      <select class="filter-select" id="sector-filter"><option value="">Tüm Sektörler</option></select>
+    </div>
+    <div class="filter-field">
+      <label for="city-filter">Şehir</label>
+      <select class="filter-select" id="city-filter"><option value="">Tüm Şehirler</option></select>
+    </div>
+  </form>
   <div class="cards-grid" id="cards-grid">
     <div class="empty-cards"><div class="eic" data-icon="leaf"></div><p>Yükleniyor...</p></div>
   </div>
 </div>
-<div class="tab-content active" id="tab-graph">
+<div class="tab-content active" id="tab-graph" role="tabpanel" aria-labelledby="graph-tab">
+  <p class="graph-tip" id="graph-tip" hidden>Harita odaktayken yön tuşlarıyla gezinin, + / − ile yakınlaştırıp uzaklaştırın. Tab ile şirket işaretçilerine geçin, Enter ile şirket detayını açın.</p>
   <div id="graph-wrap">
-    <div id="graph-map"></div>
-    <div id="g-tooltip">
+    <div id="graph-map" role="region" aria-label="Atık bağlantıları haritası" aria-describedby="graph-tip" hidden></div>
+    <div id="g-tooltip" role="tooltip">
       <div class="tt-name" id="tt-name">—</div>
       <div class="tt-row"><span data-icon="pin" data-icon-class="tt-icon"></span> <span id="tt-loc">—</span></div>
       <div class="tt-row"><span data-icon="factory" data-icon-class="tt-icon"></span> <span id="tt-sector">—</span></div>
       <div class="tt-row"><span data-icon="calendar" data-icon-class="tt-icon"></span> <span id="tt-date">—</span></div>
       <div class="tt-tags" id="tt-tags"></div>
-      <div class="tt-hint">Tıklayın → Şirket detayı</div>
+      <div id="tt-match"></div>
+      <div class="tt-hint">Şirket detayını açmak için tıklayın veya Enter’a basın.</div>
     </div>
-    <div class="graph-legend">
+    <div class="graph-legend" id="graph-legend" role="group" aria-label="Harita göstergesi" hidden>
       <p>Gösterge</p>
-      <div class="leg-row"><div class="leg-line" style="background:var(--gb)"></div>Atık bağlantısı</div>
-      <div class="leg-row"><div class="leg-line" style="background:var(--y)"></div>Tasarruflu (yakın)</div>
-      <div class="leg-row"><div style="width:12px;height:12px;border-radius:50%;background:rgba(82,183,136,.3);border:2px solid #52b788;animation:pulse-ring 1.4s ease-out infinite;display:inline-block;"></div>En yakın şirket</div>
+      <div class="leg-row"><span class="leg-line" aria-hidden="true"></span>Atık bağlantısı</div>
+      <div class="leg-row"><span class="leg-line leg-near" aria-hidden="true"></span>Tasarruflu (yakın)</div>
+      <div class="leg-row"><span class="leg-marker" aria-hidden="true"></span>En yakın şirket</div>
     </div>
-    <div class="graph-controls">
-      <button class="gc-btn" id="gc-in"><span data-icon="plus"></span></button>
-      <button class="gc-btn" id="gc-out"><span data-icon="minus"></span></button>
-      <button class="gc-btn" id="gc-reset"><span data-icon="refresh"></span></button>
+    <div class="graph-controls" id="graph-controls" role="group" aria-label="Harita kontrolleri" hidden>
+      <button type="button" class="gc-btn" id="gc-in" aria-label="Haritayı yakınlaştır"><span data-icon="plus"></span></button>
+      <button type="button" class="gc-btn" id="gc-out" aria-label="Haritayı uzaklaştır"><span data-icon="minus"></span></button>
+      <button type="button" class="gc-btn" id="gc-reset" aria-label="Varsayılan harita görünümüne dön"><span data-icon="refresh"></span></button>
     </div>
-    <div class="graph-empty" id="graph-empty"><div class="ge-icon" data-icon="network"></div><p>Ağda henüz şirket yok</p></div>
+    <p class="graph-map-note" id="graph-map-note" role="status" hidden>Harita zemini yüklenemedi. Şirket işaretçilerini ve bağlantıları inceleyebilirsiniz.</p>
+    <div class="graph-empty" id="graph-empty" role="status"><div class="ge-icon" data-icon="network"></div><p id="graph-status">Yükleniyor...</p></div>
   </div>
 </div>
 <script src="icons.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
 <script src="api.js"></script>
+<script src="assets/js/nav.js"></script>
 <script src="assets/js/network.js"></script>
 </body>
 </html>

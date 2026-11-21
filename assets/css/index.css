@@ -601,7 +601,8 @@ h2 {
 .chat-prompt:hover { background:var(--green-rgba); border-color:var(--gb); }
 .chat-prompt:focus-visible,
 .chat-send-btn:focus-visible,
-.chat-company-card:focus-visible { outline:2px solid var(--gl); outline-offset:2px; }
+.chat-company-card:focus-visible { outline:2px solid var(--gb); outline-offset:2px; }
+.nav-user { font-size:.82rem; color:var(--text-mid); }
 .chat-form {
   display:flex;
   gap:10px;

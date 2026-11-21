@@ -1,35 +1,22 @@
 applyIcons();
 let user = null;
-let inputs = [], outputs = [], selIcon = 'factory';
+let inputs = [], outputs = [];
 let currentConversation = null, modalRequest = 0;
 let currentMsgTab = 'in';
-let stopPolling, messageListRequest = 0, lastMessageListHtml;
+let stopPolling, overviewRequest = 0, companyListRequest = 0, messageListRequest = 0, lastMessageListHtml;
 const unreadMessages = new Map();
+const threadDialog = document.getElementById('thread-modal');
+const actionDialog = document.getElementById('action-modal');
 
 (async () => {
-  user = await Auth.getCurrent();
+  user = await navUser;
   if (!user) { location.href = 'login.html'; return; }
 
-  const fullName = user.ad + ' ' + user.soyad;
-  document.getElementById('sb-name').textContent      = fullName;
-  document.getElementById('sb-email').textContent     = user.email;
   document.getElementById('welcome-msg').textContent  = 'Hoş geldiniz, ' + user.ad + '!';
-  document.getElementById('mob-user-name').textContent = user.ad;
-  document.getElementById('mob-user-info').textContent = fullName + ' · ' + user.email;
-  document.getElementById('mob-logout-area').style.display = 'none';
 
   populateIlSelect('f-il', 'f-ilce');
 
-  const ICON_KEYS = SECTOR_ICON_KEYS;
-  const eg = document.getElementById('emoji-grid');
-  ICON_KEYS.forEach(k => {
-    const d = document.createElement('div');
-    d.className = 'eopt' + (k === 'factory' ? ' sel' : '');
-    d.innerHTML = Icon(k);
-    d.title = k;
-    d.onclick = () => { selIcon = k; document.querySelectorAll('.eopt').forEach(el => el.classList.toggle('sel', el.title === k)); };
-    eg.appendChild(d);
-  });
+  initIconPicker();
 
   document.getElementById('f-emission').oninput = function () { document.getElementById('em-val').textContent = '%' + this.value; };
   mkTag('inp-wrap', 'inp-field', inputs, 'in');
@@ -61,6 +48,23 @@ async function handleNewMessages(messages) {
     await refreshModal();
   }
   if (document.getElementById('tp-messages').classList.contains('active')) await renderMessages();
+  if (document.getElementById('tp-overview').classList.contains('active') && messages.some(m => !m.fromCompanyId)) {
+    const threads = await Messages.getThreadsForCompany();
+    document.getElementById('ov-msgs').textContent = threads?.length ?? '—';
+  }
+}
+
+function initIconPicker() {
+  const labels = {
+    factory: 'Fabrika', wheat: 'Buğday', thread: 'İplik', coffee: 'Kahve', flask: 'Laboratuvar',
+    leaf: 'Yaprak', brick: 'Tuğla', recycle: 'Geri dönüşüm', battery: 'Pil', pill: 'İlaç',
+    barrel: 'Varil', package: 'Paket', wave: 'Dalga', energy: 'Enerji', plug: 'Fiş',
+    construction: 'İnşaat', truck: 'Kamyon', component: 'Parça',
+  };
+  document.getElementById('emoji-grid').innerHTML = SECTOR_ICON_KEYS.map(key => `
+    <input class="sr-only" type="radio" id="company-icon-${key}" name="company-icon" value="${key}"${key === 'factory' ? ' checked' : ''}>
+    <label class="eopt" for="company-icon-${key}" title="${labels[key]}">${Icon(key)}<span class="sr-only">${labels[key]}</span></label>
+  `).join('');
 }
 
 function mkTag(wId, iId, arr, cls) {
@@ -70,12 +74,13 @@ function mkTag(wId, iId, arr, cls) {
     arr.forEach((t, i) => {
       const p = document.createElement('div');
       p.className = 'tpill ' + cls;
-      p.innerHTML = `${escapeHtml(t)}<button>${Icon('close')}</button>`;
-      p.querySelector('button').onclick = () => { arr.splice(i, 1); render(); };
+      p.innerHTML = `${escapeHtml(t)}<button type="button" aria-label="${escapeHtml(t)} etiketini kaldır">${Icon('close')}</button>`;
+      p.querySelector('button').onclick = () => { arr.splice(i, 1); render(); inp.focus(); };
       w.insertBefore(p, inp);
     });
   }
   inp.onkeydown = e => {
+    if (e.isComposing) return;
     if ((e.key === 'Enter' || e.key === ',') && inp.value.trim()) {
       e.preventDefault();
       const v = inp.value.trim().replace(/,$/, '');
@@ -84,7 +89,7 @@ function mkTag(wId, iId, arr, cls) {
     }
     if (e.key === 'Backspace' && !inp.value && arr.length) { arr.pop(); render(); }
   };
-  w.onclick = () => inp.focus();
+  w.onclick = e => { if (!e.target.closest('button')) inp.focus(); };
 }
 
 function setActiveTab(t) {
@@ -104,43 +109,109 @@ async function goTab(t) {
   if (t === 'messages') await renderMessages();
 }
 
+function setLoadState(region, busy, text) {
+  region.setAttribute('aria-busy', String(busy));
+  const status = document.getElementById(`${region.id}-status`);
+  if (status.textContent !== text) status.textContent = text;
+}
+
+function listSkeleton(cardClass) {
+  return `<div class="${cardClass} loading-card" aria-hidden="true"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line short"></span></div>`.repeat(2);
+}
+
+function emptyState(icon, text) {
+  return `<div class="empty-state"><div class="ei">${Icon(icon)}</div><p>${escapeHtml(text)}</p></div>`;
+}
+
+// Live refreshes can replace the button that launched a dialog or held keyboard focus.
+function restoreDashboardFocus(opener) {
+  if (opener?.getClientRects().length) { opener.focus(); return; }
+  const card = opener?.closest('.msg-thread, .company-card');
+  if (!card) return;
+  const { conversationId, companyId, type } = card.dataset;
+  const selector = companyId != null ? `[data-company-id="${CSS.escape(companyId)}"]`
+    : `[data-conversation-id="${CSS.escape(conversationId)}"][data-type="${type}"]`;
+  const replacement = document.querySelector(`${selector} .${opener.classList[0]}`);
+  const fallback = document.querySelector(companyId != null ? '#company-grid' : '.msg-tab.active');
+  (replacement || fallback)?.focus();
+}
+
+function replaceList(list, html) {
+  const focused = list.contains(document.activeElement) ? document.activeElement : null;
+  list.innerHTML = html;
+  if (focused !== list) restoreDashboardFocus(focused);
+}
+
+async function showActionDialog(title, text, { opener, confirmDelete = false } = {}) {
+  while (actionDialog.open) await new Promise(resolve => actionDialog.addEventListener('close', resolve, { once: true }));
+  const focusTarget = opener ?? document.activeElement;
+  document.getElementById('action-title').textContent = title;
+  document.getElementById('action-text').textContent = text;
+  document.getElementById('action-dismiss').textContent = confirmDelete ? 'Vazgeç' : 'Tamam';
+  document.getElementById('action-confirm').hidden = !confirmDelete;
+  actionDialog.returnValue = '';
+  actionDialog.showModal();
+  return new Promise(resolve => {
+    actionDialog.addEventListener('close', () => {
+      restoreDashboardFocus(focusTarget);
+      resolve(actionDialog.returnValue === 'confirm');
+    }, { once: true });
+  });
+}
+
 async function renderOverview() {
-  const [cos, threads] = await Promise.all([Companies.getByUser(), Messages.getThreadsForCompany()]);
-  document.getElementById('ov-companies').textContent = cos.length;
-  document.getElementById('ov-inputs').textContent    = cos.reduce((s, c) => s + (c.inputs  || []).length, 0);
-  document.getElementById('ov-outputs').textContent   = cos.reduce((s, c) => s + (c.outputs || []).length, 0);
-  document.getElementById('ov-msgs').textContent      = threads.length;
+  const stats = document.getElementById('overview-stats');
+  const request = ++overviewRequest;
+  setLoadState(stats, true, 'Özet yükleniyor…');
+  const data = await Promise.all([Companies.getByUser(), Messages.getThreadsForCompany()]).catch(() => null);
+  if (request !== overviewRequest) return;
+  const [cos, threads] = data ?? [];
+  document.getElementById('ov-companies').textContent = cos?.length ?? '—';
+  document.getElementById('ov-inputs').textContent    = cos?.reduce((s, c) => s + (c.inputs  || []).length, 0) ?? '—';
+  document.getElementById('ov-outputs').textContent   = cos?.reduce((s, c) => s + (c.outputs || []).length, 0) ?? '—';
+  document.getElementById('ov-msgs').textContent      = threads?.length ?? '—';
+  setLoadState(stats, false, data ? 'Özet yüklendi.' : 'Özet yüklenemedi.');
 }
 
 async function renderCompanies() {
-  const cos = await Companies.getByUser();
-  const g   = document.getElementById('company-grid');
-  if (!cos.length) { g.innerHTML = '<div class="empty-state"><div class="ei">' + Icon('factory') + '</div><p>Henüz şirket eklemediniz.</p></div>'; return; }
-  g.innerHTML = cos.map(c => `
+  const g = document.getElementById('company-grid');
+  const request = ++companyListRequest;
+  if (!g.hasChildNodes()) g.innerHTML = listSkeleton('company-card');
+  setLoadState(g, true, 'Şirketler yükleniyor…');
+  const cos = await Companies.getByUser().catch(() => null);
+  if (request !== companyListRequest) return;
+  const emptyText = cos ? 'Henüz şirket eklemediniz.' : 'Şirketler yüklenemedi.';
+  const html = cos?.length ? cos.map(c => `
     <div class="company-card" data-company-id="${escapeHtml(c.id)}">
       <div class="cc-head"><div class="cc-emoji">${Icon(resolveCompanyIcon(c.icon ?? c.emoji))}</div><div><div class="cc-name">${escapeHtml(c.name)}</div><div class="cc-loc">${Icon('pin')} ${escapeHtml(c.il)} / ${escapeHtml(c.ilce)}</div></div></div>
       <div class="cc-tags">${(c.inputs||[]).slice(0,2).map(t=>`<span class="cc-tag in">${Icon('component')} ${escapeHtml(t)}</span>`).join('')}${(c.outputs||[]).slice(0,2).map(t=>`<span class="cc-tag out">${Icon('recycle')} ${escapeHtml(t)}</span>`).join('')}</div>
       <div class="cc-footer">
-        <div class="cc-emission">%${escapeHtml(c.emission||0)} <span style="font-size:.68rem;font-weight:400;color:rgba(255,255,255,.4)">emisyon</span></div>
+        <div class="cc-emission">%${escapeHtml(c.emission||0)} <span class="cc-emission-label">emisyon</span></div>
         <div class="cc-actions">
           <button class="cc-btn view">Görüntüle</button>
           <button class="cc-btn del">Sil</button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`).join('') : emptyState('factory', emptyText);
+  replaceList(g, html);
+  setLoadState(g, false, cos?.length ? `${cos.length} şirket listelendi.` : emptyText);
 }
 
 document.getElementById('company-grid').addEventListener('click', e => {
   const button = e.target.closest('.cc-btn');
   if (!button) return;
   const { companyId } = button.closest('.company-card').dataset;
-  if (button.classList.contains('del')) delCompany(companyId);
+  if (button.classList.contains('del')) delCompany(companyId, button);
   else location.href = companyDetailUrl(companyId);
 });
 
-async function delCompany(id) {
-  if (!confirm('Bu şirket silinsin mi?')) return;
-  await Companies.delete(id);
+async function delCompany(id, opener) {
+  if (!await showActionDialog('Şirketi sil', 'Bu şirket silinsin mi?', { opener, confirmDelete: true })) return;
+  const res = await Companies.delete(id);
+  if (!res.ok) {
+    await showActionDialog('Şirket silinemedi', res.msg || 'Lütfen tekrar deneyin.');
+    return;
+  }
   await renderCompanies();
   await renderOverview();
 }
@@ -152,11 +223,11 @@ async function addCompany() {
   const ilce   = document.getElementById('f-ilce').value;
   const errEl  = document.getElementById('f-err');
   const okEl   = document.getElementById('f-ok');
-  errEl.style.display = 'none'; okEl.style.display = 'none';
-  if (!name)   { errEl.innerHTML = Icon('warning') + ' Şirket adı zorunludur.'; errEl.style.display = 'block'; return; }
-  if (!sector) { errEl.innerHTML = Icon('warning') + ' Sektör seçiniz.';        errEl.style.display = 'block'; return; }
-  if (!il)     { errEl.innerHTML = Icon('warning') + ' İl seçiniz.';            errEl.style.display = 'block'; return; }
-  if (!ilce)   { errEl.innerHTML = Icon('warning') + ' İlçe seçiniz.';          errEl.style.display = 'block'; return; }
+  errEl.textContent = ''; okEl.textContent = '';
+  if (!name)   { errEl.innerHTML = Icon('warning') + ' Şirket adı zorunludur.'; return; }
+  if (!sector) { errEl.innerHTML = Icon('warning') + ' Sektör seçiniz.'; return; }
+  if (!il)     { errEl.innerHTML = Icon('warning') + ' İl seçiniz.'; return; }
+  if (!ilce)   { errEl.innerHTML = Icon('warning') + ' İlçe seçiniz.'; return; }
   const btn = document.getElementById('btn-add');
   const btnOrigHtml = btn.innerHTML;
   btn.disabled = true; btn.textContent = 'Ekleniyor...';
@@ -169,26 +240,28 @@ async function addCompany() {
     inputs: [...inputs], outputs: [...outputs],
     emission: parseInt(document.getElementById('f-emission').value),
     desc: document.getElementById('f-desc').value.trim(),
-    icon: selIcon,
+    icon: document.querySelector('#emoji-grid :checked').value,
   });
   btn.disabled = false; btn.innerHTML = btnOrigHtml;
-  if (!res.ok) { errEl.innerHTML = Icon('warning') + ' ' + escapeHtml(res.msg || 'Bir hata oluştu.'); errEl.style.display = 'block'; return; }
+  if (!res.ok) { errEl.innerHTML = Icon('warning') + ' ' + escapeHtml(res.msg || 'Bir hata oluştu.'); return; }
   ['f-name','f-email','f-tel','f-web','f-desc'].forEach(id => document.getElementById(id).value = '');
   ['f-sector','f-size','f-il'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-ilce').value = ''; document.getElementById('f-ilce').disabled = true;
   document.getElementById('f-emission').value = 25; document.getElementById('em-val').textContent = '%25';
   inputs.length = 0; outputs.length = 0;
   document.querySelectorAll('#inp-wrap .tpill, #out-wrap .tpill').forEach(el => el.remove());
-  selIcon = 'factory'; document.querySelectorAll('.eopt').forEach((el, i) => el.classList.toggle('sel', i === 0));
-  okEl.innerHTML = Icon('check') + ' Şirket başarıyla ağa eklendi!'; okEl.style.display = 'block';
-  setTimeout(() => okEl.style.display = 'none', 3500);
+  document.getElementById('company-icon-factory').checked = true;
+  okEl.innerHTML = Icon('check') + ' Şirket başarıyla ağa eklendi!';
   await renderOverview();
 }
 
 function switchMsgTab(tab) {
   currentMsgTab = tab;
-  document.getElementById('mtab-in').classList.toggle('active',  tab === 'in');
-  document.getElementById('mtab-out').classList.toggle('active', tab === 'out');
+  document.querySelectorAll('.msg-tab').forEach(button => {
+    const selected = button.id === `mtab-${tab}`;
+    button.classList.toggle('active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
   renderMessages();
 }
 
@@ -196,43 +269,56 @@ async function renderMessages() {
   const list = document.getElementById('msg-list');
   const request = ++messageListRequest;
   const type = currentMsgTab, inbound = type === 'in';
-  const threads = await (inbound ? Messages.getThreadsForCompany() : Messages.getSentThreads());
-  const companies = inbound && threads.length ? await Companies.getByUser() : [];
+  if (list.dataset.tab !== type) {
+    list.dataset.tab = type;
+    lastMessageListHtml = null;
+    setLoadState(list, true, 'Mesajlar yükleniyor…');
+    replaceList(list, listSkeleton('msg-thread'));
+  }
+  const threads = await (inbound ? Messages.getThreadsForCompany() : Messages.getSentThreads()).catch(() => null);
+  const companies = inbound && threads?.length ? await Companies.getByUser().catch(() => []) : [];
   if (request !== messageListRequest) return;
   const companyNames = new Map(companies.map(c => [String(c.id), c.name]));
-  const html = threads.map(t => {
+  const emptyText = !threads ? 'Mesajlar yüklenemedi.' : inbound ? 'Henüz gelen mesaj yok.' : 'Henüz mesaj göndermediniz.';
+  const html = threads?.length ? threads.map((t, index) => {
     const companyName = t.companyName ?? companyNames.get(String(t.companyId)) ?? '—';
     const hasUnread = t.unreadCount != null ? t.unreadCount > 0
       : (t.msgs ?? [t.lastMsg]).some(m => m && !m.read && (inbound ? !m.fromCompanyId : !!m.fromCompanyId));
     const preview = String(t.lastMsg?.text ?? '');
+    const name = escapeHtml(inbound ? t.senderName : companyName);
     return `<div class="msg-thread${hasUnread?' unread':''}" data-conversation-id="${escapeHtml(t.conversationId)}"
                  data-company-name="${escapeHtml(companyName)}" data-type="${type}">
-      <div class="mt-head">
-        <div class="mt-avatar">${Icon(inbound ? 'user' : resolveCompanyIcon(t.companyIcon ?? t.companyEmoji))}</div>
-        <div class="mt-info"><div class="mt-name">${escapeHtml(inbound ? t.senderName : companyName)}</div><div class="mt-company">${inbound ? escapeHtml(companyName) + ' şirketine' : 'Gönderilen konuşma'}</div></div>
-        ${hasUnread?'<div class="unread-dot"></div>':''}
-        <div class="mt-meta">${t.lastMsg ? escapeHtml(new Date(t.lastMsg.createdAt).toLocaleDateString('tr-TR')) : ''}</div>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 1.2rem .8rem;">
-        <div class="mt-preview" style="padding:0;border:none;flex:1;">${escapeHtml(preview.slice(0,100))}${preview.length>100?'…':''}</div>
-        <button class="mt-delete">Sil</button>
+      <button type="button" class="mt-head" aria-haspopup="dialog" aria-label="${name} konuşmasını aç${hasUnread ? ', okunmamış' : ''}" aria-describedby="mt-company-${index} mt-preview-${index}">
+        <span class="mt-avatar">${Icon(inbound ? 'user' : resolveCompanyIcon(t.companyIcon ?? t.companyEmoji))}</span>
+        <span class="mt-info"><span class="mt-name">${name}</span><span class="mt-company" id="mt-company-${index}">${inbound ? escapeHtml(companyName) + ' şirketine' : 'Gönderilen konuşma'}</span></span>
+        ${hasUnread ? '<span class="unread-dot" aria-hidden="true"></span>' : ''}
+        <span class="mt-meta">${t.lastMsg ? escapeHtml(new Date(t.lastMsg.createdAt).toLocaleDateString('tr-TR')) : ''}</span>
+      </button>
+      <div class="mt-footer">
+        <div class="mt-preview" id="mt-preview-${index}">${escapeHtml(preview.slice(0,100))}${preview.length>100?'…':''}</div>
+        <button type="button" class="mt-delete" aria-label="${name} konuşmasını sil" aria-describedby="mt-company-${index}" aria-haspopup="dialog">Sil</button>
       </div>
     </div>`;
-  }).join('') || `<div class="empty-state"><div class="ei">${Icon(inbound ? 'chat' : 'upload')}</div><p>${inbound ? 'Henüz gelen mesaj yok.' : 'Henüz mesaj göndermediniz.'}</p></div>`;
-  if (lastMessageListHtml !== html) list.innerHTML = lastMessageListHtml = html;
+  }).join('') : emptyState(inbound ? 'chat' : 'upload', emptyText);
+  if (lastMessageListHtml !== html) replaceList(list, lastMessageListHtml = html);
+  setLoadState(list, false, threads?.length ? `${threads.length} konuşma listelendi.` : emptyText);
 }
 
 document.getElementById('msg-list').addEventListener('click', e => {
-  const card = e.target.closest('.msg-thread');
-  if (!card?.dataset.conversationId) return;
-  if (e.target.closest('.mt-delete')) deleteThread(card.dataset.conversationId, card.dataset.type);
-  else if (e.target.closest('.mt-head')) openThread(card.dataset);
+  const button = e.target.closest('.mt-head, .mt-delete');
+  if (!button) return;
+  const card = button.closest('.msg-thread');
+  if (button.classList.contains('mt-delete')) deleteThread(card.dataset.conversationId, card.dataset.type, button);
+  else openThread(card.dataset, button);
 });
 
-async function deleteThread(conversationId, type) {
-  if (!confirm('Bu konuşma silinsin mi?')) return;
+async function deleteThread(conversationId, type, opener) {
+  if (!await showActionDialog('Konuşmayı sil', 'Bu konuşma silinsin mi?', { opener, confirmDelete: true })) return;
   const res = await Messages.deleteThread({ conversationId, type });
-  if (!res.ok) { alert('Silinemedi: ' + (res.msg || 'Hata')); return; }
+  if (!res.ok) {
+    await showActionDialog('Konuşma silinemedi', res.msg || 'Lütfen tekrar deneyin.');
+    return;
+  }
   for (const [id, threadId] of unreadMessages) {
     if (threadId === conversationId) unreadMessages.delete(id);
   }
@@ -241,11 +327,13 @@ async function deleteThread(conversationId, type) {
   await renderMessages();
 }
 
-async function openThread({ conversationId, companyName, type }) {
-  currentConversation = { id: conversationId, type };
+async function openThread({ conversationId, companyName, type }, opener) {
+  currentConversation = { id: conversationId, type, opener };
   document.getElementById('modal-title').textContent = (companyName || 'Şirket') + ' — Konuşma';
-  document.getElementById('modal-msgs').textContent = 'Yükleniyor...';
-  document.getElementById('modal-bg').classList.add('open');
+  const box = document.getElementById('modal-msgs');
+  box.innerHTML = listSkeleton('chat-bubble them');
+  threadDialog.showModal();
+  setLoadState(box, true, 'Konuşma yükleniyor…');
   if (await refreshModal()) await renderMessages();
 }
 
@@ -253,29 +341,31 @@ function isOwnMessage(m, type) {
   return type === 'in' ? !!m.fromCompanyId : !m.fromCompanyId && String(m.fromUserId) === String(user.id);
 }
 
-function renderModalMsgs(msgs, type) {
+function renderModalMsgs(msgs, thread) {
   const box = document.getElementById('modal-msgs');
-  box.innerHTML = msgs.map(m => {
-    const isMe = isOwnMessage(m, type);
-    return `<div style="display:flex;flex-direction:column;align-items:${isMe?'flex-end':'flex-start'}">
-      <div class="chat-bubble ${isMe?'me':'them'}">${escapeHtml(m.text)}</div>
+  const emptyText = msgs ? 'Bu konuşmada henüz mesaj yok.' : 'Konuşma yüklenemedi.';
+  const html = msgs?.length ? msgs.map(m => {
+    const side = isOwnMessage(m, thread.type) ? 'me' : 'them';
+    return `<div class="chat-message ${side}">
+      <div class="chat-bubble ${side}">${escapeHtml(m.text)}</div>
       <div class="bubble-meta">${escapeHtml(m.fromName||'—')} · ${escapeHtml(new Date(m.createdAt).toLocaleString('tr-TR'))}</div>
     </div>`;
-  }).join('');
-  box.scrollTop = box.scrollHeight;
+  }).join('') : emptyState('chat', emptyText);
+  if (thread.lastHtml !== html) {
+    box.innerHTML = thread.lastHtml = html;
+    box.scrollTop = box.scrollHeight;
+  }
+  setLoadState(box, false, '');
 }
 
 async function refreshModal() {
   const thread = currentConversation;
-  if (!thread) return false;
+  if (!thread || !threadDialog.open) return false;
   const request = ++modalRequest;
-  const msgs = await Messages.getThreadMsgs(thread.id);
-  if (thread !== currentConversation || request !== modalRequest) return false;
-  if (!msgs) {
-    document.getElementById('modal-msgs').textContent = 'Konuşma yüklenemedi.';
-    return false;
-  }
-  renderModalMsgs(msgs, thread.type);
+  const msgs = await Messages.getThreadMsgs(thread.id).catch(() => null);
+  if (!threadDialog.open || thread !== currentConversation || request !== modalRequest) return false;
+  renderModalMsgs(msgs, thread);
+  if (!msgs) return false;
   const ids = msgs.filter(m => m.id != null && !m.read && !isOwnMessage(m, thread.type)).map(m => m.id);
   let markedRead = false;
   for (let i = 0; i < ids.length; i += 200) {
@@ -293,12 +383,18 @@ async function sendReply() {
   const input = document.getElementById('reply-ta');
   const button = document.querySelector('.modal-send');
   const draft = input.value, text = draft.trim(), thread = currentConversation;
-  if (!text || !thread || button.disabled) return;
-  button.disabled = true;
+  if (!text || !thread || thread.sending) return;
+  thread.sending = true;
+  button.setAttribute('aria-disabled', 'true');
   const res = await Messages.reply({ conversationId: thread.id, type: thread.type, text });
-  button.disabled = false;
-  if (!res.ok) { alert(res.msg || 'Yanıt gönderilemedi.'); return; }
-  if (thread === currentConversation) {
+  thread.sending = false;
+  const threadStillOpen = thread === currentConversation && threadDialog.open;
+  if (threadStillOpen) button.removeAttribute('aria-disabled');
+  if (!res.ok) {
+    if (threadStillOpen) await showActionDialog('Yanıt gönderilemedi', res.msg || 'Lütfen tekrar deneyin.');
+    return;
+  }
+  if (threadStillOpen) {
     if (input.value === draft) input.value = '';
     await refreshModal();
   }
@@ -306,10 +402,17 @@ async function sendReply() {
 }
 
 function closeModal() {
-  document.getElementById('modal-bg').classList.remove('open');
-  document.getElementById('reply-ta').value = '';
-  currentConversation = null;
+  threadDialog.close();
 }
+
+threadDialog.addEventListener('close', () => {
+  if (threadDialog.open) return;
+  const opener = currentConversation?.opener;
+  document.getElementById('reply-ta').value = '';
+  threadDialog.querySelector('.modal-send').removeAttribute('aria-disabled');
+  currentConversation = null;
+  if (!actionDialog.open) restoreDashboardFocus(opener);
+});
 
 async function doLogout() {
   stopPolling?.();
@@ -318,5 +421,5 @@ async function doLogout() {
 }
 
 document.getElementById('reply-ta').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); }
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendReply(); }
 });

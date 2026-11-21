@@ -1,4 +1,3 @@
-document.getElementById('nav-back-link').innerHTML = Icon('arrowLeft') + ' Atık Ağına Dön';
 const params     = new URLSearchParams(location.search);
 const companyId  = params.get('id');
 const root       = document.getElementById('main-content');
@@ -6,14 +5,14 @@ let company = null, currentUser = null;
 let conversationId = null, historyRequest = 0;
 
 (async () => {
-  [company, currentUser] = await Promise.all([Companies.getById(companyId), Auth.getCurrent()]);
+  [company, currentUser] = await Promise.all([Companies.getById(companyId), navUser]);
 
   if (!company) {
-    root.innerHTML = '<div class="not-found"><div style="margin-bottom:1rem;opacity:.3;display:flex;justify-content:center;"><span style="width:3rem;height:3rem;display:inline-block;">' + Icon('factory') + '</span></div><p>Şirket bulunamadı.</p><a href="network.html" style="color:var(--gb);text-decoration:none;font-size:.88rem;">' + Icon('arrowLeft') + ' Ağa Dön</a></div>';
+    root.innerHTML = `<div class="not-found"><div class="not-found-icon">${Icon('factory')}</div><p>Şirket bulunamadı.</p><a href="network.html">${Icon('arrowLeft')} Ağa Dön</a></div>`;
     return;
   }
 
-  document.title = company.name + ' — GreenLoop';
+  document.title = 'GreenLoop – ' + company.name;
   renderPage();
 
   if (currentUser && String(company.userId) !== String(currentUser.id)) {
@@ -29,17 +28,17 @@ function renderPage() {
   root.innerHTML = `
   <div class="hero">
     <div class="hero-inner">
-      <div class="hero-avatar">${Icon(resolveCompanyIcon(company.icon ?? company.emoji))}</div>
+      <div class="hero-avatar">${Icon(resolveCompanyIcon(company.icon))}</div>
       <div class="hero-info">
         <div class="company-name">${escapeHtml(company.name)}</div>
-        <div class="company-meta" style="margin-top:.6rem;gap:.6rem;">
+        <div class="company-meta">
           <span class="sector-badge">${escapeHtml(company.sector||'Sektör')}</span>
           <span class="meta-pill">${Icon('pin')} ${escapeHtml(company.il)} / ${escapeHtml(company.ilce)}</span>
           ${company.size ? `<span class="meta-pill">${Icon('users')} ${escapeHtml(company.size)} çalışan</span>` : ''}
           <span class="meta-pill">${Icon('calendar')} ${escapeHtml(company.date)}</span>
         </div>
       </div>
-      <div style="text-align:right;flex-shrink:0;">
+      <div class="hero-emission">
         <div class="emission-big">%${escapeHtml(company.emission||0)}</div>
         <div class="emission-lbl">Emisyon Azaltımı</div>
       </div>
@@ -50,28 +49,28 @@ function renderPage() {
       ${company.desc ? `<div class="section"><div class="section-title">${Icon('edit')} Şirket Hakkında</div><div class="desc-text">${escapeHtml(company.desc)}</div></div>` : ''}
       <div class="section">
         <div class="section-title">${Icon('component')} Kullandığı Hammaddeler</div>
-        <div class="tag-list">${(company.inputs||[]).length ? company.inputs.map(t=>`<span class="stag in">${escapeHtml(t)}</span>`).join('') : '<span style="font-size:.82rem;color:rgba(255,255,255,.25)">Belirtilmemiş</span>'}</div>
+        <div class="tag-list">${(company.inputs||[]).length ? company.inputs.map(t=>`<span class="stag in">${escapeHtml(t)}</span>`).join('') : '<span class="tag-empty">Belirtilmemiş</span>'}</div>
       </div>
       <div class="section">
         <div class="section-title">${Icon('recycle')} Ürettiği Atıklar</div>
-        <div class="tag-list">${(company.outputs||[]).length ? company.outputs.map(t=>`<span class="stag out">${escapeHtml(t)}</span>`).join('') : '<span style="font-size:.82rem;color:rgba(255,255,255,.25)">Belirtilmemiş</span>'}</div>
+        <div class="tag-list">${(company.outputs||[]).length ? company.outputs.map(t=>`<span class="stag out">${escapeHtml(t)}</span>`).join('') : '<span class="tag-empty">Belirtilmemiş</span>'}</div>
       </div>
       <div class="section">
         <div class="section-title">${Icon('chart')} Emisyon Azaltım Oranı</div>
-        <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:var(--y);">%${escapeHtml(company.emission||0)}</div>
-        <div class="em-bar-track"><div class="em-bar-fill" id="em-bar" style="width:0%"></div></div>
+        <div class="emission-value">%${emission}</div>
+        <div class="em-bar-track" aria-hidden="true"><div class="em-bar-fill" id="em-bar"></div></div>
       </div>
       <div class="section">
         <div class="section-title">${Icon('clipboard')} Genel Bilgiler</div>
-        <div class="info-grid">
-          <div class="info-item"><label>Şehir</label><div class="val">${Icon('pin')} ${escapeHtml(company.il||'—')} / ${escapeHtml(company.ilce||'—')}</div></div>
-          <div class="info-item"><label>Sektör</label><div class="val">${escapeHtml(company.sector||'—')}</div></div>
-          ${company.size ? `<div class="info-item"><label>Çalışan</label><div class="val">${Icon('users')} ${escapeHtml(company.size)}</div></div>` : ''}
-          ${company.email ? `<div class="info-item"><label>E-posta</label><div class="val">${escapeHtml(company.email)}</div></div>` : ''}
-          ${company.tel   ? `<div class="info-item"><label>Telefon</label><div class="val">${escapeHtml(company.tel)}</div></div>` : ''}
-          ${company.web   ? `<div class="info-item"><label>Web</label><div class="val">${webUrl ? `<a href="${escapeHtml(webUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--gb);">${webLabel}</a>` : webLabel}</div></div>` : ''}
-          <div class="info-item"><label>Eklenme Tarihi</label><div class="val">${escapeHtml(company.date||'—')}</div></div>
-        </div>
+        <dl class="info-grid">
+          <div class="info-item"><dt>Şehir</dt><dd class="val">${Icon('pin')} ${escapeHtml(company.il||'—')} / ${escapeHtml(company.ilce||'—')}</dd></div>
+          <div class="info-item"><dt>Sektör</dt><dd class="val">${escapeHtml(company.sector||'—')}</dd></div>
+          ${company.size ? `<div class="info-item"><dt>Çalışan</dt><dd class="val">${Icon('users')} ${escapeHtml(company.size)}</dd></div>` : ''}
+          ${company.email ? `<div class="info-item"><dt>E-posta</dt><dd class="val">${escapeHtml(company.email)}</dd></div>` : ''}
+          ${company.tel   ? `<div class="info-item"><dt>Telefon</dt><dd class="val">${escapeHtml(company.tel)}</dd></div>` : ''}
+          ${company.web   ? `<div class="info-item"><dt>Web</dt><dd class="val">${webUrl ? `<a href="${escapeHtml(webUrl)}" target="_blank" rel="noopener noreferrer">${webLabel}</a>` : webLabel}</dd></div>` : ''}
+          <div class="info-item"><dt>Eklenme Tarihi</dt><dd class="val">${escapeHtml(company.date||'—')}</dd></div>
+        </dl>
       </div>
     </div>
     <div>
@@ -94,22 +93,22 @@ function renderContactBox() {
   if (!body) return;
 
   if (currentUser && String(company.userId) === String(currentUser.id)) {
-    body.innerHTML = `<p style="font-size:.82rem;color:rgba(255,255,255,.35);text-align:center;padding:.5rem 0;">Bu sizin şirketiniz.<br><a href="dashboard.html" style="color:var(--gb);">Panele git ${Icon('arrowRight')}</a></p>`;
+    body.innerHTML = `<p class="contact-owner">Bu sizin şirketiniz.<br><a href="dashboard.html">Panele git ${Icon('arrowRight')}</a></p>`;
     return;
   }
 
   body.innerHTML = `
     <div id="contact-history" hidden></div>
     <div class="msg-box">
-      <div class="msg-success" id="msg-ok">${Icon('check')} Mesajınız gönderildi!</div>
-      <div class="msg-error"   id="msg-err"></div>
+      <div class="msg-success" id="msg-ok" role="status">${Icon('check')} Mesajınız gönderildi!</div>
+      <div class="msg-error"   id="msg-err" role="alert"></div>
       ${!currentUser ? `
-        <div class="msg-field"><label>Adınız *</label><input id="m-name" placeholder="Ad Soyad"/></div>
-        <div class="msg-field"><label>E-posta *</label><input id="m-email" type="email" placeholder="ornek@email.com"/></div>
+        <div class="msg-field"><label for="m-name">Adınız *</label><input id="m-name" placeholder="Ad Soyad" autocomplete="name"/></div>
+        <div class="msg-field"><label for="m-email">E-posta *</label><input id="m-email" type="email" placeholder="ornek@email.com" autocomplete="email"/></div>
         <div hidden><label for="m-website">Web sitesi</label><input id="m-website" name="website" autocomplete="off" tabindex="-1"/></div>` : ''}
-      <div class="msg-field"><label>Mesajınız *</label><textarea id="m-text" placeholder="Hammadde ihtiyacınız, atık teklifiniz veya iş birliği talebiniz..."></textarea></div>
+      <div class="msg-field"><label for="m-text">Mesajınız *</label><textarea id="m-text" maxlength="5000" placeholder="Hammadde ihtiyacınız, atık teklifiniz veya iş birliği talebiniz..."></textarea></div>
       <button class="send-btn" id="send-btn" onclick="sendMsg()">Mesaj Gönder ${Icon('arrowRight')}</button>
-      ${!currentUser ? `<p style="font-size:.7rem;color:rgba(255,255,255,.25);text-align:center;"><a href="login.html" style="color:var(--gb);">Giriş yapın</a> — geçmiş mesajları görüntüleyin</p>` : ''}
+      ${!currentUser ? `<p class="contact-hint">Yanıtları platformda almak için mesaj göndermeden önce <a href="login.html">giriş yapın</a>.</p>` : ''}
     </div>`;
 }
 
@@ -127,11 +126,11 @@ async function refreshContactHistory() {
   history.hidden = !msgs.length;
   history.innerHTML = msgs.length ? `<div class="thread-box" id="thread-box">${msgs.map(m => {
     const isMe = !m.fromCompanyId && String(m.fromUserId) === String(currentUser.id);
-    return `<div style="display:flex;flex-direction:column;align-items:${isMe ? 'flex-end' : 'flex-start'}">
+    return `<div class="contact-message${isMe ? ' own' : ''}">
       <div class="cb ${isMe ? 'me' : 'them'}">${escapeHtml(m.text)}</div>
       <div class="cb-meta">${escapeHtml(m.fromName)} · ${escapeHtml(new Date(m.createdAt).toLocaleString('tr-TR'))}</div>
     </div>`;
-  }).join('')}</div><div style="height:1px;background:rgba(82,183,136,.1);"></div>` : '';
+  }).join('')}</div><div class="contact-divider"></div>` : '';
   const threadBox = document.getElementById('thread-box');
   if (threadBox) threadBox.scrollTop = threadBox.scrollHeight;
 }

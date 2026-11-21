@@ -1,29 +1,31 @@
 # AGENTS.md
 
-GreenLoop: Turkish-language industrial waste-matching platform. Plain PHP 8.2 backend + vanilla JS frontend. No framework, no package manager, no build step. Verification is manual (run server, hit endpoints, use the UI) plus `python3 tests/smoke_test.py` against a running server.
+GreenLoop is a Turkish-language industrial waste-matching platform: PHP 8.2, MariaDB, static HTML and vanilla JS. No framework, package manager, or build step. Keep user-facing strings in Turkish.
 
 ## Running
 
-- Dev env is [devenv.sh](https://devenv.sh) (Nix): `devenv shell` (or direnv). No PHP deps to install; PHP extensions pdo_mysql/mysqli come from devenv.nix.
-- `devenv shell` automatically starts MySQL (root, no password, `skip-grant-tables`) and serves the whole repo root via `php -S 0.0.0.0:8000` as a `processes.web-server` process. Page load also runs the `greenloop:init-db` task, which re-imports `schema.sql` into the `greenloop` DB (schema is idempotent, `IF NOT EXISTS`). Import manually with `devenv tasks run greenloop:init-db` after editing `schema.sql`. (Devenv 2.x task names must be `namespace:name`.)
-- Web: http://localhost:8000
+- Run `devenv up --detach` to start MariaDB and the web server at <http://127.0.0.1:8000>. Use `devenv shell` (or direnv) separately for PHP 8.2 with `pdo_mysql`, `mysqli`, `mbstring`, and `curl`, plus MariaDB tools, `curl`, `jq`, and Python 3. Entering the shell does not start the services.
+- The dev server uses `PHP_CLI_SERVER_WORKERS=4` and `php -S 127.0.0.1:8000 -t . router.php`, so chat streaming does not block all other requests. Keep `router.php`: it allowlists pages, public assets, and API entry points, keeping `.env`, SQL, tests, and internal PHP files out of HTTP. The PHP CLI server and loopback MariaDB with `skip-grant-tables` are development only.
+- `devenv` loads optional, gitignored `.env` settings; see `.env.example`. `api/config.php` reads `GREENLOOP_DB_HOST`, `GREENLOOP_DB_NAME`, `GREENLOOP_DB_USER`, and `GREENLOOP_DB_PASS` from the process environment. Outside devenv, supply them to PHP yourself; do not edit DB settings per endpoint or commit secrets.
+- Web startup applies `schema.sql`, then `seed.sql`. `devenv tasks run greenloop:init-db` reapplies both against dev MariaDB. For an existing DB upgrade, take a backup and stop application writes before applying the schema (including before startup if it will trigger the upgrade). Legacy messages that can be associated with a conversation are migrated; the original table is retained as `messages_legacy` for review/recovery and is never read by the API.
+- `seed.sql` is optional outside dev and repeatable. It creates 20 DB-backed demo companies marked `isDemo` in the API, with stable IDs and material tags. Their reserved owner `demo-user` cannot log in. Do not reintroduce client-side demo fixtures or rely on the demo owner to test replies.
 
 ## Architecture
 
-- Backend: `api/config.php` is shared prelude (JSON headers, fixed CORS origin `http://localhost`, PDO singleton `db()`, `session_start()`, helpers `resp()/err()/body()/requireAuth()/newId()`). No router or framework.
-- Each endpoint file (`api/auth.php`, `companies.php`, `messages.php`) is a dispatcher: `match` on `?action=...`. Add new endpoints there — never new files.
-- Auth is PHP sessions, not tokens/tokens-in-headers. All endpoints require `credentials: 'include'` (frontend does this).
-- DB credentials are the `DB_*` constants in `api/config.php` — change there, not per-endpoint.
-- Frontend: static HTML pages at repo root (each with a paired `assets/js/*.js` and `assets/css/*.css`). `icons.js` provides `Icon(name)` + `applyIcons()`; static pages inject icons via `data-icon="..."` attributes.
-- **`tr-data.js` is misleadingly named**: besides TR province/district data it defines the entire frontend API client (`Auth`, `Companies`, `Messages` globals + `API` base path). It's loaded by every page. Extend API clients here, not in page scripts.
-- `API` base path switches by hostname: `/api` on localhost vs `/greenloop/api` when deployed ( subdir assumed). Keep this if adding endpoints.
-- `DEMO_COMPANIES` (in `tr-data.js`) are fake records merged into `Companies.getAll()`/`getById()` when the DB is sparse — for jury/demo presentations. They never hit the DB; API client returns a demo company from `getById()` without a request.
+- `api/config.php` is the shared prelude for JSON, PDO, session cookies, error handling, and rate limits. API auth uses cookies, not bearer tokens. Use the existing method checks and the `{ok: true, data: ...}` / `{ok: false, msg: ...}` envelope with appropriate HTTP status codes. Check each route's field names; responses use a mix of DB fields and frontend aliases. See [the route table](README.md#api).
+- Add actions to existing `?action=` dispatchers rather than creating PHP files per endpoint. `api/matches.php` (public matching dispatcher) and `api/chat.php` (standalone streaming POST) are intentional exceptions to the original no-new-endpoint-files rule. Any further public entry point needs explicit approval and a corresponding `router.php` allowlist entry.
+- Extend the shared browser client in `api.js` (`Auth`, `Companies`, `Matches`, `Messages`). It uses relative `./api` and `credentials: 'include'`, including for subdirectory deployments. `tr-data.js` is only province/district data and select setup. `icons.js` supplies `Icon()` and `applyIcons()` for `data-icon` elements.
+- `assets/js/nav.js` renders the shared wordmark and header variants via `data-nav`. Page scripts reuse its `navUser` promise; dashboard-specific controls stay local to the dashboard.
+- Material matching lives in `api/matches.php`: normalized Turkish tags, directed output-to-input edges, score and `reasons` with original labels and optional province-center distance. Do not infer matches from sector or proximity alone. The network cards and focus/hover marker tooltips show the best partner, score, distance when known, and match reasons from the API. Keep the company list available when Leaflet fails to load.
 
-## Gotchas
+## Messages and Chat
 
-- All user-facing strings are Turkish. Writes with English text will look wrong in the UI.
-- Responses use envelope `{ok: true, data: ...}` / `{ok: false, msg: ...}`; frontend checks `r.ok`, so HTTP status alone is not enough.
-- PHP column names are snake_case (`from_user_id`); API responses remap to camelCase (`fmtMsg()` in messages.php, `buildCompany()` in companies.php). Follow this mapping when adding fields.
-- External PHP links use camelCase keys (`toCompanyId`) but GET params are snake_case (`company_id`, `threadKey` is sent in POST body). Check `messages.php` dispatchers before assuming.
-- The AI chat on `index.html` is configured in `assets/js/chat-config.js`: `provider: 'ollama'` (default) calls a local Ollama at `http://localhost:11434`; `provider: 'openai-compatible'` calls an OpenAI-style `/chat/completions` endpoint (`compat.baseUrl`, `compat.model`, key from `localStorage 'gl_chat_key'`). When Ollama is down, the model is missing or the provider fails, the chat shows a short Turkish message in the chat window; it does not fail silently.
-- `assets/js/dashboard.js` uses long-polling (`Messages.pollNew`) for unread message badges — new message features should keep the `lastPollTime` polling loop in mind.
+- Conversations are keyed by company plus account ID or normalized guest email. Thread lookups, replies, and hides use conversation IDs, not legacy thread keys. Hiding affects only the caller's side; a new message restores visibility on both sides. Guest messages and replies are stored in the app; there is no guest email delivery or guest thread access.
+- Route new message inserts through `insertMessage()` in a transaction. It locks the singleton `message_write_lock` row before allocating a cursor and holds it through commit, so polls cannot advance past an earlier uncommitted insert. `poll` uses `since_id` and optional `company_id` and returns `{messages, lastId}`. `startMessagePolling()` in `api.js` polls every 10 seconds while visible (not long polling); dashboard badges and company-detail history depend on it.
+- The homepage POSTs to `api/chat.php`. Ollama and browser-side provider configuration are gone. Pre-stream failures use JSON; SSE uses envelope data with text deltas, optional `companies` or `reset` events, and `[DONE]`. The system prompt is server-side at `api/prompts/master.md`. No key is shipped or needed for the Turkish fallback. Opt in with server-side `GREENLOOP_CHAT_KEY` and an explicit `GREENLOOP_CHAT_MODELS` list; override `GREENLOOP_CHAT_BASE_URL` for a different provider or endpoint.
+- [OpenCode Zen](https://opencode.ai/docs/zen) documents `https://opencode.ai/inference/openai/v1` as the base for its OpenAI-compatible chat route and lists the requested `glm-5.3-flash-free` as retired on November 18, 2026. The actual code defaults are `big-pickle,deepseek-v4.1-flash-free,hy4-flash-free`, not a promise of external access. Zen free chat models require OpenCode; external clients need eligible paid models or OpenCode Go. Use a mock for routine tests.
+
+## Verification
+
+- Against a running, seeded dev server with no chat key: `python3 tests/smoke_test.py` (or `--chat-only` for live no-key checks). Never point the suite at production; it writes test data. `python3 -B tests/smoke_test.py --mock-chat` uses a disposable PHP server, local mock upstream, and dev DB to verify streaming, model fallback, and history filtering without real credentials.
+- Preserve raw text in storage and JSON; render untrusted values with `textContent` or `escapeHtml()` and validate external URLs with `safeHttpUrl()`. Chat citations should resolve only to server-supplied company IDs. The smoke test checks raw markup round-tripping, not browser XSS behavior. Verify changed UI paths separately with harmless markup-like text: it should appear literally, not create DOM elements or unexpected links.
