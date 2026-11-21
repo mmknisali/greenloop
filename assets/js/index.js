@@ -30,8 +30,6 @@ document.getElementById('feature-grid').innerHTML = [
     '<div class="feature-body"><strong>' + f[1] + '</strong><span>' + f[2] + '</span></div></div>';
 }).join('');
 
-const CHAT = window.GL_CHAT;
-
 (async () => {
   const cu = await Auth.getCurrent();
   if (cu) {
@@ -77,166 +75,221 @@ const counterObs = new IntersectionObserver(entries => {
 }, { threshold: .4 });
 document.querySelectorAll('.stat-number').forEach(el => counterObs.observe(el));
 
-let chatHistory = [], isLoading = false;
+const chatHistory = [];
+let isLoading = false;
 const msgBox  = document.getElementById('chat-messages');
 const ta      = document.getElementById('chat-textarea');
 const sendBtn = document.getElementById('chat-send');
 const errBox  = document.getElementById('chat-error');
+const chatFailed = 'Yanıt alınamadı. Lütfen tekrar deneyin.';
 
-function mdParse(t) {
-  return escapeHtml(t)
-    .replace(/```[\w]*\n?([\s\S]*?)```/g, (_,c) => `<pre><code>${c.trim()}</code></pre>`)
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
-    .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>[\s\S]+?<\/li>)/g, '<ul>$1</ul>')
-    .replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')
-    .replace(/^([^<].+)$/, '<p>$1</p>');
+function mdInline(text, companies) {
+  const tokens = /`([^`]+)`|\[([^\]]+)\]\(([^()]*)\)|\*\*(.+?)\*\*|\*([^*]+)\*/g;
+  let html = '', end = 0;
+  for (const token of text.matchAll(tokens)) {
+    const [raw, code, label, target, bold, italic] = token;
+    html += escapeHtml(text.slice(end, token.index));
+    if (code !== undefined) {
+      html += `<code>${escapeHtml(code)}</code>`;
+    } else if (label !== undefined) {
+      // Resolve the citation ID, never the model's label or URL.
+      const id = /^(?:company:|(?:\.\/)?company-detail\.html\?id=)([^\s&?#]+)$/.exec(target);
+      let company;
+      if (id) {
+        try { company = companies.get(decodeURIComponent(id[1])); } catch (_) {}
+      }
+      html += company
+        ? `<a class="chat-company-card" href="${escapeHtml(companyDetailUrl(company.id))}"><strong>${escapeHtml(company.name)}</strong><small>${Icon('pin')} ${escapeHtml(company.il)}</small></a>`
+        : escapeHtml(label);
+    } else if (bold !== undefined) {
+      html += `<strong>${mdInline(bold, companies)}</strong>`;
+    } else {
+      html += `<em>${mdInline(italic, companies)}</em>`;
+    }
+    end = token.index + raw.length;
+  }
+  return html + escapeHtml(text.slice(end));
+}
+
+function mdParse(text, companies) {
+  const lines = text.split(/\r\n?|\n/);
+  const blocks = [];
+  let list = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const item = /^[-*] (.+)$/.exec(line);
+    if (item) {
+      if (!list) blocks.push('<ul>');
+      list = true;
+      blocks.push(`<li>${mdInline(item[1], companies)}</li>`);
+      continue;
+    }
+    if (list) blocks.push('</ul>');
+    list = false;
+    if (line.startsWith('```')) {
+      const start = ++i;
+      while (i < lines.length && !lines[i].startsWith('```')) i++;
+      blocks.push(`<pre><code>${escapeHtml(lines.slice(start, i).join('\n'))}</code></pre>`);
+    } else if (line.startsWith('### ')) {
+      blocks.push(`<h3>${mdInline(line.slice(4), companies)}</h3>`);
+    } else if (line.startsWith('> ')) {
+      blocks.push(`<blockquote>${mdInline(line.slice(2), companies)}</blockquote>`);
+    } else if (line.trim()) {
+      blocks.push(`<p>${mdInline(line, companies)}</p>`);
+    }
+  }
+  if (list) blocks.push('</ul>');
+  return blocks.join('');
 }
 
 class ChatError extends Error {}
 
-function addChatNote(text) {
+function chatErrorMessage(payload, fallback = chatFailed) {
+  if (payload?.ok === false && typeof payload.msg === 'string') return payload.msg.trim() || fallback;
+  return fallback;
+}
+
+function addChatMessage(role, html) {
   const wrap = document.createElement('div');
-  wrap.className = 'cmsg assistant';
-  wrap.innerHTML = `<div class="cmsg-avatar">${Icon('ai')}</div><div class="cmsg-bubble"><p>${escapeHtml(text)}</p></div>`;
+  wrap.className = `cmsg ${role}`;
+  wrap.innerHTML = `<div class="cmsg-avatar">${Icon(role === 'user' ? 'user' : 'ai')}</div><div class="cmsg-bubble">${html}</div>`;
   msgBox.appendChild(wrap);
-  msgBox.scrollTop = msgBox.scrollHeight;
+  return wrap;
 }
 
-// Sağlayıcıya göre istek. Ollama: NDJSON (/api/chat). openai-compatible: SSE (/chat/completions).
-function buildRequest() {
-  const messages = [{ role: 'system', content: CHAT.systemPrompt }, ...CHAT.examples, ...chatHistory.slice(-CHAT.historyTurns)];
-  if (CHAT.provider === 'openai-compatible') {
-    const c = CHAT.compat;
-    let key = (c.apiKey || '').trim();
-    try { key = key || (localStorage.getItem('gl_chat_key') || '').trim(); } catch (_) {}
-    const headers = { 'Content-Type': 'application/json' };
-    if (key) headers.Authorization = 'Bearer ' + key;
-    return {
-      url: c.baseUrl.replace(/\/+$/, '') + '/chat/completions',
-      headers,
-      body: { model: c.model, messages, stream: true, temperature: c.temperature, max_tokens: c.maxTokens },
-      sse: true,
-      msgs: c.messages,
-      unreachable: c.messages.unreachable,
-      modelMissing: c.messages.modelMissing,
-    };
-  }
-  const m = CHAT.messages;
-  return {
-    url: CHAT.url,
-    headers: { 'Content-Type': 'application/json' },
-    body: { model: CHAT.model, messages, stream: true, keep_alive: CHAT.keepAlive, options: CHAT.options },
-    sse: false,
-    msgs: m,
-    unreachable: m.notRunning.replace('{model}', CHAT.model),
-    modelMissing: m.modelMissing.replace('{model}', CHAT.model),
-  };
-}
-
-// Akışı okur, metni baloncuğa yazar, tam yanıtı döndürür.
-async function readReply(res, sse, bubble, msgs) {
+async function readReply(res, bubble) {
+  if (!res.body) throw new ChatError(chatFailed);
   const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = '', reply = '', finished = false;
-  const show = () => { bubble.innerHTML = mdParse(reply); msgBox.scrollTop = msgBox.scrollHeight; };
-  const handleLine = raw => {
-    const line = raw.trim();
-    if (!line) return;
-    if (sse) {
-      if (!line.startsWith('data:')) return;          // SSE yorum ve olay alanları
-      const payload = line.slice(5).trim();
-      if (payload === '[DONE]') { finished = true; return; }
-      let j;
-      try { j = JSON.parse(payload); } catch (_) { throw new ChatError(msgs.failed); } // bozuk akış
-      if (j.error) throw new ChatError(msgs.failed);
-      reply += j.choices?.[0]?.delta?.content || '';
-    } else {
-      let j;
-      try { j = JSON.parse(line); } catch (_) { return; }
-      if (j.error) throw new ChatError(msgs.failed);
-      reply += j.message?.content || '';
+  const decoder = new TextDecoder();
+  const companies = new Map();
+  let buffer = '', reply = '', event = '', data = [], finished = false;
+
+  function dispatch() {
+    const kind = event || 'message';
+    const payload = data.join('\n');
+    event = '';
+    data = [];
+    if (!payload || !['message', 'companies', 'reset', 'error'].includes(kind)) return;
+    if (kind === 'message' && payload.trim() === '[DONE]') {
+      finished = true;
+      return;
     }
-    show();
-  };
-  while (!finished) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop();
-    for (const l of lines) { handleLine(l); if (finished) break; }
+    const envelope = JSON.parse(payload);
+    if (envelope?.ok !== true || kind === 'error') throw new ChatError(chatErrorMessage(envelope));
+    if (kind === 'reset') {
+      reply = '';
+    } else if (kind === 'companies') {
+      if (!Array.isArray(envelope.data)) throw new ChatError(chatFailed);
+      companies.clear();
+      for (const company of envelope.data) {
+        if (company && (typeof company.id === 'string' || Number.isSafeInteger(company.id)) &&
+            String(company.id) && typeof company.name === 'string' && typeof company.il === 'string') {
+          companies.set(String(company.id), company);
+        }
+      }
+    } else if (typeof envelope.data?.text === 'string') {
+      reply += envelope.data.text;
+    } else {
+      throw new ChatError(chatFailed);
+    }
   }
-  if (!finished) handleLine(buf);
-  reader.cancel().catch(() => {});
-  return reply;
+
+  try {
+    while (!finished) {
+      const { done, value } = await reader.read();
+      buffer += done ? decoder.decode() + '\n\n' : decoder.decode(value, { stream: true });
+      // Keep a trailing CR until the next chunk in case it is part of CRLF.
+      const trailingCR = !done && buffer.endsWith('\r');
+      const lines = (trailingCR ? buffer.slice(0, -1) : buffer).split(/\r\n?|\n/);
+      buffer = lines.pop() + (trailingCR ? '\r' : '');
+      const previousReply = reply;
+      for (const line of lines) {
+        if (!line) dispatch();
+        else if (line === 'event' || line.startsWith('event:')) event = line.slice(6).replace(/^ /, '');
+        else if (line === 'data' || line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''));
+        if (finished) break;
+      }
+      if (reply !== previousReply) {
+        const atBottom = msgBox.scrollHeight - msgBox.scrollTop - msgBox.clientHeight < 32;
+        bubble.innerHTML = mdParse(reply, companies);
+        if (atBottom) msgBox.scrollTop = msgBox.scrollHeight;
+      }
+      if (done) break;
+    }
+    if (!finished) throw new ChatError('Yanıt yarıda kesildi. Lütfen tekrar deneyin.');
+    return reply.trim();
+  } finally {
+    reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
+function resizeChatInput() {
+  ta.style.height = '44px';
+  ta.style.height = Math.min(ta.scrollHeight, 140) + 'px';
 }
 
 async function sendMsg() {
   const text = ta.value.trim();
   if (!text || isLoading) return;
-  ta.value = ''; ta.style.height = '44px';
-  errBox.style.display = 'none';
-  isLoading = true; sendBtn.disabled = true;
+  ta.value = '';
+  resizeChatInput();
+  errBox.textContent = '';
+  isLoading = true;
+  sendBtn.disabled = true;
+  msgBox.setAttribute('aria-busy', 'true');
 
-  chatHistory.push({ role: 'user', content: text });
-
-  const uDiv = document.createElement('div');
-  uDiv.className = 'cmsg user';
-  uDiv.innerHTML = `<div class="cmsg-avatar">${Icon('user')}</div><div class="cmsg-bubble"><p>${escapeHtml(text)}</p></div>`;
-  msgBox.appendChild(uDiv);
-
-  const tyDiv = document.createElement('div');
-  tyDiv.className = 'cmsg assistant'; tyDiv.id = 'typing';
-  tyDiv.innerHTML = `<div class="cmsg-avatar">${Icon('ai')}</div><div class="cmsg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
-  msgBox.appendChild(tyDiv);
+  const question = { role: 'user', content: text };
+  const user = addChatMessage('user', `<p>${escapeHtml(text)}</p>`);
+  const assistant = addChatMessage('assistant', '<div class="typing-dots" aria-label="Yanıt hazırlanıyor"><span></span><span></span><span></span></div>');
   msgBox.scrollTop = msgBox.scrollHeight;
 
-  let wrap = null;
-  let msgs = CHAT.messages;   // hata metinleri: sağlayıcıya göre seçilir
   try {
-    const req = buildRequest();
-    msgs = req.msgs;
     let res;
     try {
-      res = await fetch(req.url, { method: 'POST', headers: req.headers, body: JSON.stringify(req.body) });
+      res = await fetch(`${API}/chat.php`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream, application/json' },
+        body: JSON.stringify({ messages: [...chatHistory.slice(-6), question] }),
+      });
     } catch (_) {
-      // Ağ hatası: sağlayıcı çalışmıyor ya da erişilemiyor
-      throw new ChatError(req.unreachable);
+      throw new ChatError('Sohbet sunucusuna ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.');
     }
 
-    document.getElementById('typing')?.remove();
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      if (res.status === 401 || res.status === 403) throw new ChatError(msgs.unauthorized || msgs.failed);
-      if (res.status === 404 || /not found|pull/i.test(detail)) throw new ChatError(req.modelMissing);
-      throw new ChatError(msgs.failed);
+    if (!res.ok || res.headers.get('content-type')?.includes('application/json')) {
+      const payload = await res.json().catch(() => null);
+      const fallback = res.status === 429 ? 'Çok fazla istek gönderdiniz. Biraz bekleyip tekrar deneyin.' : chatFailed;
+      throw new ChatError(chatErrorMessage(payload, fallback));
     }
 
-    wrap = document.createElement('div');
-    wrap.className = 'cmsg assistant';
-    wrap.innerHTML = `<div class="cmsg-avatar">${Icon('ai')}</div><div class="cmsg-bubble"></div>`;
-    msgBox.appendChild(wrap);
-    const bubble = wrap.querySelector('.cmsg-bubble');
-    let reply = await readReply(res, req.sse, bubble, msgs);
-
-    reply = reply.trim();
-    if (!reply) throw new ChatError(msgs.empty);
-    chatHistory.push({ role: 'assistant', content: reply });
+    const reply = await readReply(res, assistant.querySelector('.cmsg-bubble'));
+    if (!reply) throw new ChatError('Asistan boş yanıt verdi. Sorunuzu farklı bir şekilde yazıp tekrar deneyin.');
+    chatHistory.push(question, { role: 'assistant', content: reply });
   } catch (err) {
-    document.getElementById('typing')?.remove();
-    wrap?.remove();
-    chatHistory.pop(); // soru yanıtsız kaldı; bir sonraki istekte geçmişte durmasın
-    addChatNote(err instanceof ChatError ? err.message : msgs.failed);
+    assistant.remove();
+    if (!ta.value) {
+      user.remove();
+      ta.value = text;
+      resizeChatInput();
+    }
+    errBox.textContent = err instanceof ChatError ? err.message : chatFailed;
   } finally {
-    isLoading = false; sendBtn.disabled = false; ta.focus();
+    isLoading = false;
+    sendBtn.disabled = false;
+    msgBox.setAttribute('aria-busy', 'false');
   }
 }
 
-sendBtn.addEventListener('click', sendMsg);
-ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } });
-ta.addEventListener('input', () => { ta.style.height = '44px'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; });
+document.getElementById('chat-form').addEventListener('submit', e => { e.preventDefault(); sendMsg(); });
+ta.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendMsg(); }
+});
+ta.addEventListener('input', resizeChatInput);
+document.querySelectorAll('.chat-prompt').forEach(chip => {
+  chip.addEventListener('click', () => {
+    ta.value = chip.textContent.trim();
+    resizeChatInput();
+    ta.focus();
+  });
+});

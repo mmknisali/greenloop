@@ -54,19 +54,25 @@
         <div class="chat-header-info"><strong>GreenLoop AI</strong><small>Döngüsel Ekonomi Asistanı</small></div>
         <div class="chat-status-dot"></div>
       </div>
-      <div class="chat-messages" id="chat-messages">
+      <div class="chat-messages" id="chat-messages" role="log" aria-label="Sohbet mesajları">
         <div class="cmsg assistant">
           <div class="cmsg-avatar" id="cmsg-avatar-0"></div>
           <div class="cmsg-bubble"><p>Merhaba! Ben <strong>GreenLoop AI</strong> asistanıyım.</p><p>Atıklarınızı nasıl değere dönüştürebileceğinizi birlikte keşfedelim. Size nasıl yardımcı olabilirim?</p></div>
         </div>
       </div>
       <div class="chat-input-area">
-        <div id="chat-error" style="display:none" class="chat-error"></div>
-        <div class="chat-form">
-          <textarea id="chat-textarea" class="chat-textarea" placeholder="Atıklarınız hakkında bir soru sorun..." rows="1"></textarea>
-          <button id="chat-send" class="chat-send-btn"><svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button>
+        <div class="chat-prompts" role="group" aria-label="Önerilen sorular">
+          <button type="button" class="chat-prompt">Plastik talaşını kimler kullanabilir?</button>
+          <button type="button" class="chat-prompt">Bursa'da hangi geri dönüşüm şirketleri var?</button>
+          <button type="button" class="chat-prompt">Atık kumaş nasıl değerlendirilir?</button>
+          <button type="button" class="chat-prompt">GreenLoop'a şirketimi nasıl eklerim?</button>
         </div>
-        <p class="chat-hint">Enter ile gönder · Shift+Enter yeni satır</p>
+        <p id="chat-error" class="chat-error" role="alert"></p>
+        <form class="chat-form" id="chat-form">
+          <textarea id="chat-textarea" class="chat-textarea" aria-label="Sorunuz" aria-describedby="chat-hint" placeholder="Sorunuzu yazın..." rows="1"></textarea>
+          <button type="submit" id="chat-send" class="chat-send-btn" aria-label="Gönder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></button>
+        </form>
+        <p class="chat-hint" id="chat-hint">Enter ile gönder · Shift+Enter yeni satır</p>
       </div>
     </div>
   </div>
@@ -127,7 +133,6 @@
 
 <script src="icons.js"></script>
 <script src="tr-data.js"></script>
-<script src="assets/js/chat-config.js"></script>
 <script src="assets/js/index.js"></script>
 </body>
 </html>

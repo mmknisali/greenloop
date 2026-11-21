@@ -17,7 +17,7 @@ in
   # ── Languages ──
   languages.php.enable = true;
   languages.php.version = "8.2";
-  languages.php.extensions = [ "pdo_mysql" "mysqli" "mbstring" ];
+  languages.php.extensions = [ "pdo_mysql" "mysqli" "mbstring" "curl" ];
 
   # ── Packages ──
   packages = [ pkgs.git pkgs.mariadb pkgs.curl ];

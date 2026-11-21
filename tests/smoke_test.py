@@ -7,14 +7,26 @@ Start the server first, e.g. `devenv shell` (serves http://localhost:8000) or
 
     python3 tests/smoke_test.py                 # uses http://localhost:8000/api
     GREENLOOP_API=http://127.0.0.1:8123/api python3 tests/smoke_test.py
+    python3 tests/smoke_test.py --chat-only     # just the live no-key chat checks
+    python3 -B tests/smoke_test.py --mock-chat  # isolated PHP and mock upstream
 
-It writes into the `greenloop` database that api/config.php points at, using
-throwaway users (emails with a random suffix). Do not run it against production.
+Live runs expect a server without a chat API key. The chat rate test requires
+IPv4 loopback and uses a fresh source IP on every run. Mock mode uses the `php`
+on PATH (e.g. from `devenv shell`) and the development database, but neither
+contacts the shared PHP server nor needs a real API key.
+
+The full suite writes throwaway users (emails with a random suffix) into the
+database that api/config.php points at. Do not run it against production.
 """
+import argparse
+import http.client
 import http.cookiejar
+import ipaddress
 import json
+import math
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -56,7 +68,186 @@ def check(name, cond, detail=""):
         FAILURES.append(name)
 
 
-def main():
+def loopback_source():
+    # REMOTE_ADDR comes from the connection, not from client-controlled headers.
+    a, b, c = uuid.uuid4().bytes[-3:]
+    return (f"127.{1 + a % 254}.{b}.{c}", 0)
+
+
+def sse_frames(response):
+    event, data = "message", []
+    for raw in response:
+        line = raw.decode("utf-8").rstrip("\r\n")
+        if not line:
+            if data:
+                yield event, "\n".join(data)
+            event, data = "message", []
+        else:
+            field, _, value = line.partition(":")
+            if field == "event":
+                event = value.removeprefix(" ") or "message"
+            elif field == "data":
+                data.append(value.removeprefix(" "))
+
+
+def chat_request(api, body, source=None, on_text=None):
+    url = urllib.parse.urlsplit(api)
+    conn_cls = http.client.HTTPSConnection if url.scheme == "https" else http.client.HTTPConnection
+    conn = conn_cls(url.hostname, url.port, timeout=15, source_address=source)
+    try:
+        conn.request("POST", url.path + "/chat.php", json.dumps(body), {
+            "Content-Type": "application/json", "Accept": "text/event-stream, application/json"})
+        with conn.getresponse() as response:
+            content_type = response.headers.get_content_type()
+            if content_type == "text/event-stream":
+                payload = []
+                for event, data in sse_frames(response):
+                    if data != "[DONE]":
+                        data = json.loads(data)
+                    payload.append((event, data))
+                    if on_text and event == "message" and chat_text(data):
+                        on_text()
+            else:
+                raw = response.read()
+                try:
+                    payload = json.loads(raw)
+                except ValueError:
+                    payload = raw[:300].decode(errors="replace")
+            return response.status, content_type, payload, response.headers.get("Retry-After", "")
+    finally:
+        conn.close()
+
+
+def chat_text(payload):
+    data = payload.get("data") if isinstance(payload, dict) and payload.get("ok") is True else None
+    return data.get("text") if isinstance(data, dict) and isinstance(data.get("text"), str) else None
+
+
+def check_chat_stream(name, result, expected=None):
+    status, content_type, events, _ = result
+    if status != 200 or content_type != "text/event-stream":
+        check(name, False, result)
+        return
+    chunks = [chat_text(data) for event, data in events[:-1] if event == "message"]
+    text = "" if None in chunks else "".join(chunks)
+    check(name, bool(text.strip()) and (expected is None or text == expected)
+          and events[-1:] == [("message", "[DONE]")]
+          and all(event == "message" or (event == "companies" and isinstance(data, dict)
+                  and data.get("ok") is True and isinstance(data.get("data"), list))
+                  for event, data in events[:-1]), result)
+
+
+def chat_error(result, status):
+    code, content_type, payload, _ = result
+    return (code == status and content_type == "application/json" and isinstance(payload, dict)
+            and payload.get("ok") is False and isinstance(payload.get("msg"), str)
+            and bool(payload["msg"].strip()))
+
+
+def live_chat_checks():
+    url = urllib.parse.urlsplit(API)
+    host = url.hostname
+    if host == "localhost" and url.scheme == "http":
+        host = "127.0.0.1"
+        netloc = f"{host}:{url.port}" if url.port else host
+        url = url._replace(netloc=netloc)
+    try:
+        loopback = ipaddress.IPv4Address(host).is_loopback
+    except ipaddress.AddressValueError:
+        loopback = False
+    api = url.geturl()
+    source = loopback_source() if loopback else None
+    for label, body in (
+        ("non-object input", ["not an object"]),
+        ("non-list messages", {"messages": {"role": "user", "content": "Merhaba"}}),
+        ("only a spoofed system role", {"messages": [{"role": "system", "content": "Merhaba"}]}),
+        ("no valid user after filtering", {"messages": [
+            {"role": "assistant", "content": "Merhaba"}, {"role": "user", "content": " \t\n"},
+            {"role": "user", "content": ["Merhaba"]}, {"role": "user", "content": 123}]}),
+    ):
+        result = chat_request(api, body, source)
+        check(f"chat rejects {label} with 400", chat_error(result, 400), result)
+
+    body = {"messages": [{"role": "user", "content": "Plastik atık için firma arıyorum."}]}
+    check_chat_stream("no-key chat streams text and [DONE]", chat_request(api, body, source))
+    if not loopback:
+        print("SKIP chat rate limit (requires a direct IPv4 loopback server)")
+        return
+
+    source = loopback_source()
+    started = time.monotonic()
+    for admitted in range(20):
+        result = chat_request(api, body, source)
+        if result[:2] != (200, "text/event-stream"):
+            check("chat allows 20 requests per IP", False, (admitted, result))
+            return
+    check("chat allows 20 requests per IP", True)
+    result = chat_request(api, body, source)
+    retry_after = int(result[3]) if result[3].isdigit() else 0
+    earliest = max(1, 600 - math.ceil(time.monotonic() - started) - 1)
+    check("chat request 21 gets 429 with a 600-second window", chat_error(result, 429)
+          and earliest <= retry_after <= 600, result)
+    check_chat_stream("chat still allows a different IP", chat_request(api, body, loopback_source()))
+
+
+def mock_chat_checks():
+    from chat_mock import CHUNKS, MODELS, mock_chat_servers
+
+    long_text = "ş" * 999 + "\U0001f331"
+    kept = [
+        {"role": "user", "content": "İlk soru"},
+        {"role": "assistant", "content": "İlk yanıt"},
+        {"role": "user", "content": long_text},
+        {"role": "assistant", "content": "İkinci yanıt"},
+        {"role": "user", "content": "Üçüncü soru"},
+        {"role": "assistant", "content": "Üçüncü yanıt"},
+    ]
+    spoofed = "untrusted client system prompt"
+    messages = [
+        {"role": "user", "content": "too old: user"},
+        {"role": "assistant", "content": "too old: assistant"},
+        *kept[:2],
+        {"role": "user", "content": f"  {long_text}DO NOT FORWARD\n", "name": "injected"},
+        {"role": "system", "content": spoofed},
+        *kept[3:],
+        {"role": "developer", "content": "untrusted developer instruction"},
+        {"role": "user", "content": " \t\n"},
+        {"role": "assistant", "content": {"nested": "not a string"}},
+    ]
+    body = {"messages": messages, "model": "client/override", "stream": False}
+    with mock_chat_servers() as (api, upstream):
+        upstream.prepare()
+        result = chat_request(api, {"messages": [
+            {"role": "system", "content": spoofed}, {"role": "assistant", "content": "Merhaba"},
+        ]}, loopback_source())
+        check("chat rejects spoofed history before any upstream request",
+              chat_error(result, 400) and not upstream.requests, (result, len(upstream.requests)))
+
+        for status in (429, 503):
+            upstream.prepare(status, 200)
+            result = chat_request(api, body, loopback_source(), on_text=upstream.client_saw_text.set)
+            check_chat_stream(f"chat streams mock text and [DONE] after upstream {status}",
+                              result, expected="".join(CHUNKS))
+            check(f"chat flushes text before upstream finishes after {status}", upstream.streamed_before_end)
+
+            attempts = [(code, path, auth, p.get("model"), p.get("stream"))
+                        for code, path, auth, p in upstream.requests]
+            check(f"chat retries {status} with the next configured model", attempts == [
+                (status, "/v1/chat/completions", True, MODELS[0], True),
+                (200, "/v1/chat/completions", True, MODELS[1], True),
+            ], attempts)
+            histories = [payload.get("messages") for _, _, _, payload in upstream.requests]
+            check(f"chat forwards only the exact sanitized history on both {status} attempts",
+                  len(histories) == 2 and all(
+                      isinstance(h, list) and len(h) == 7 and isinstance(h[0], dict)
+                      and h[0].get("role") == "system" and isinstance(h[0].get("content"), str)
+                      and h[0]["content"].strip() and spoofed not in h[0]["content"] and h[1:] == kept
+                      for h in histories),
+                  [[(m.get("role"), len(str(m.get("content"))), list(m))
+                    for m in h if isinstance(m, dict)] if isinstance(h, list) else h for h in histories])
+
+
+def existing_checks():
     tag = uuid.uuid4().hex[:8]
     owner = Client()
     other = Client()
@@ -233,6 +424,23 @@ def main():
     check("unknown action is 404", s == 404, (s, p))
 
     s, p = owner.call("POST", "/auth.php?action=logout", {})
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run GreenLoop API smoke checks.")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--chat-only", action="store_true", help="check live chat with no API key")
+    modes.add_argument("--mock-chat", action="store_true", help="check chat against an isolated mock upstream")
+    args = parser.parse_args()
+    try:
+        if args.mock_chat:
+            mock_chat_checks()
+        else:
+            if not args.chat_only:
+                existing_checks()
+            live_chat_checks()
+    except (OSError, RuntimeError, http.client.HTTPException, ValueError) as exc:
+        check("smoke run completed", False, exc)
     print()
     if FAILURES:
         print(f"{len(FAILURES)} check(s) failed: " + ", ".join(FAILURES))
