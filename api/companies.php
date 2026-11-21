@@ -60,13 +60,15 @@ function getOne(): void {
 
 function getMine(): void {
     $user = requireAuth();
-    $stmt = db()->prepare('SELECT * FROM companies WHERE user_id = ? ORDER BY created_at DESC');
+    $readOnly = !empty($user['previewReadOnly']);
+    $filter = $readOnly ? ' AND is_demo = 1' : '';
+    $stmt = db()->prepare('SELECT * FROM companies WHERE user_id = ?' . $filter . ' ORDER BY created_at DESC');
     $stmt->execute([$user['id']]);
-    resp(['ok' => true, 'data' => buildCompanies($stmt->fetchAll(), true)]);
+    resp(['ok' => true, 'data' => buildCompanies($stmt->fetchAll(), !$readOnly)]);
 }
 
 function addCompany(): void {
-    $user = requireAuth();
+    $user = requireAuth(write: true);
     $b    = body();
 
     $name  = str($b, 'name');
@@ -144,7 +146,7 @@ function addCompany(): void {
 }
 
 function deleteCompany(): void {
-    $user = requireAuth();
+    $user = requireAuth(write: true);
     $id   = $_GET['id'] ?? '';
     if (!$id) err('id gerekli.');
 

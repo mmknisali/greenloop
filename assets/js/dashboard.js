@@ -12,6 +12,10 @@ const actionDialog = document.getElementById('action-modal');
   user = await navUser;
   if (!user) { location.href = 'login.html'; return; }
   if (user.previewAdmin) document.querySelectorAll('.logout-btn').forEach(button => { button.hidden = true; });
+  if (user.previewReadOnly) {
+    document.querySelectorAll('[data-preview-private]').forEach(el => { el.hidden = true; });
+    document.getElementById('preview-note').hidden = false;
+  }
 
   document.getElementById('welcome-msg').textContent  = 'Hoş geldiniz, ' + user.ad + '!';
 
@@ -24,7 +28,7 @@ const actionDialog = document.getElementById('action-modal');
   mkTag('out-wrap', 'out-field', outputs, 'out');
 
   await renderOverview();
-  stopPolling = startMessagePolling(handleNewMessages);
+  if (!user.previewReadOnly) stopPolling = startMessagePolling(handleNewMessages);
 })();
 
 function setBadge(count) {
@@ -164,7 +168,7 @@ async function renderOverview() {
   const stats = document.getElementById('overview-stats');
   const request = ++overviewRequest;
   setLoadState(stats, true, 'Özet yükleniyor…');
-  const data = await Promise.all([Companies.getByUser(), Messages.getThreadsForCompany()]).catch(() => null);
+  const data = await Promise.all([Companies.getByUser(), user.previewReadOnly ? [] : Messages.getThreadsForCompany()]).catch(() => null);
   if (request !== overviewRequest) return;
   const [cos, threads] = data ?? [];
   document.getElementById('ov-companies').textContent = cos?.length ?? '—';
@@ -190,7 +194,7 @@ async function renderCompanies() {
         <div class="cc-emission">%${escapeHtml(c.emission||0)} <span class="cc-emission-label">emisyon</span></div>
         <div class="cc-actions">
           <button class="cc-btn view">Görüntüle</button>
-          <button class="cc-btn del">Sil</button>
+           ${user.previewReadOnly ? '' : '<button class="cc-btn del">Sil</button>'}
         </div>
       </div>
     </div>`).join('') : emptyState('factory', emptyText);

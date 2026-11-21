@@ -90,10 +90,14 @@ function handleLogout(): void {
 }
 
 function handleMe(): void {
-    if (empty($_SESSION['user']) && previewAdminEnabled()) {
+    $scope = previewScope();
+    if (empty($_SESSION['user']) && $scope !== null) {
         $demo = db()->query("SELECT id, email, tel FROM users WHERE id = 'demo-user' AND password = '!' LIMIT 1")->fetch();
         if ($demo) {
-            startSession($demo + ['ad' => 'Önizleme', 'soyad' => 'Yöneticisi', 'previewAdmin' => true]);
+            startSession($demo + [
+                'ad' => 'Önizleme', 'soyad' => 'Yöneticisi',
+                'previewAdmin' => true, 'previewReadOnly' => $scope === 'shared',
+            ]);
         }
     }
     resp(['ok' => true, 'data' => $_SESSION['user'] ?? null]);

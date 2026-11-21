@@ -39,22 +39,34 @@ function db(): PDO {
 }
 
 ini_set('session.use_strict_mode', '1');
+$previewScope = previewScope();
 session_set_cookie_params([
     'httponly' => true,
     'samesite' => 'Lax',
-    'secure'   => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'secure'   => $previewScope === 'shared' || (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
 ]);
 session_start();
-if (!empty($_SESSION['user']['previewAdmin']) && !previewAdminEnabled()) {
+if (!empty($_SESSION['user']['previewAdmin']) &&
+    ($previewScope === null || ($previewScope === 'shared') !== !empty($_SESSION['user']['previewReadOnly']))) {
     unset($_SESSION['user']);
 }
 
-function previewAdminEnabled(): bool {
-    return getenv('GREENLOOP_PREVIEW_ADMIN') === '1' && PHP_SAPI === 'cli-server'
-        && in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)
-        && preg_match('/\A(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?\z/i', $_SERVER['HTTP_HOST'] ?? '') === 1
-        && !isset($_SERVER['HTTP_FORWARDED']) && !isset($_SERVER['HTTP_X_FORWARDED_FOR'])
-        && !isset($_SERVER['HTTP_X_FORWARDED_HOST']);
+function previewScope(): ?string {
+    if (getenv('GREENLOOP_PREVIEW_ADMIN') !== '1' || PHP_SAPI !== 'cli-server' ||
+        !in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)) return null;
+
+    $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
+    $sharedHost = strtolower(trim(getenv('GREENLOOP_PREVIEW_HOST') ?: ''));
+    // Trust the HTTPS indication only for the configured hostname from the loopback tunnel.
+    if ($sharedHost !== '' && $host === $sharedHost && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') {
+        return 'shared';
+    }
+    if (preg_match('/\A(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?\z/', $host) &&
+        !isset($_SERVER['HTTP_FORWARDED']) && !isset($_SERVER['HTTP_X_FORWARDED_FOR']) &&
+        !isset($_SERVER['HTTP_X_FORWARDED_HOST']) && !isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+        return 'local';
+    }
+    return null;
 }
 
 function resp(mixed $data, int $code = 200): never {
@@ -121,8 +133,9 @@ function maxLen(string $value, int $max, string $label): void {
     if ($chars > $max) err($label . ' en fazla ' . $max . ' karakter olabilir.');
 }
 
-function requireAuth(): array {
+function requireAuth(bool $write = false): array {
     if (empty($_SESSION['user'])) err('Oturum açmanız gerekiyor.', 401);
+    if ($write && !empty($_SESSION['user']['previewReadOnly'])) err('Önizlemede değişiklik yapılamaz.', 403);
     return $_SESSION['user'];
 }
 

@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] !== $method) {
     header('Allow: ' . $method);
     err('Geçersiz istek yöntemi.', 405);
 }
+if (!empty($_SESSION['user']['previewReadOnly'])) err('Mesajlar bu önizlemede kullanılamaz.', 403);
 
 match ($action) {
     'send'          => sendMessage(),

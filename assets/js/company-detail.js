@@ -15,7 +15,7 @@ let conversationId = null, historyRequest = 0;
   document.title = 'GreenLoop – ' + company.name;
   renderPage();
 
-  if (currentUser && String(company.userId) !== String(currentUser.id)) {
+  if (currentUser && !currentUser.previewReadOnly && String(company.userId) !== String(currentUser.id)) {
     await refreshContactHistory();
     startMessagePolling(refreshContactHistory, company.id);
   }
@@ -91,6 +91,11 @@ function renderPage() {
 function renderContactBox() {
   const body = document.getElementById('contact-body');
   if (!body) return;
+
+  if (currentUser?.previewReadOnly) {
+    body.innerHTML = '<p class="contact-owner">Mesajlaşma bu önizlemede kapalıdır.</p>';
+    return;
+  }
 
   if (currentUser && String(company.userId) === String(currentUser.id)) {
     body.innerHTML = `<p class="contact-owner">Bu sizin şirketiniz.<br><a href="dashboard.html">Panele git ${Icon('arrowRight')}</a></p>`;
