@@ -13,6 +13,8 @@ in
 {
   # ── Environment variables ──
   dotenv.enable = true;
+  # The private .env is sourced at runtime so credentials never enter a Nix derivation.
+  dotenv.filename = ".env.devenv";
   env.PHP_CLI_SERVER_WORKERS = "4";
 
   # ── Languages ──
@@ -36,6 +38,11 @@ in
   # ── Processes ──
   processes.web-server.exec = ''
     ${initDb} || exit $?
+    if [ -f .env ]; then
+      set -a
+      . ./.env || exit $?
+      set +a
+    fi
     # For phone testing only, change 127.0.0.1 to 0.0.0.0 on a trusted LAN.
     exec ${config.languages.php.package}/bin/php -S 127.0.0.1:8000 -t . router.php
   '';

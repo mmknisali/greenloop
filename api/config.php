@@ -45,6 +45,17 @@ session_set_cookie_params([
     'secure'   => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
 ]);
 session_start();
+if (!empty($_SESSION['user']['previewAdmin']) && !previewAdminEnabled()) {
+    unset($_SESSION['user']);
+}
+
+function previewAdminEnabled(): bool {
+    return getenv('GREENLOOP_PREVIEW_ADMIN') === '1' && PHP_SAPI === 'cli-server'
+        && in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)
+        && preg_match('/\A(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?\z/i', $_SERVER['HTTP_HOST'] ?? '') === 1
+        && !isset($_SERVER['HTTP_FORWARDED']) && !isset($_SERVER['HTTP_X_FORWARDED_FOR'])
+        && !isset($_SERVER['HTTP_X_FORWARDED_HOST']);
+}
 
 function resp(mixed $data, int $code = 200): never {
     http_response_code($code);

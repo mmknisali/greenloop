@@ -11,4 +11,5 @@ devenv.local.yaml
 
 # Local secrets and Python smoke-test artifacts
 .env
+.env.devenv
 __pycache__/

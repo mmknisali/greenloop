@@ -11,6 +11,7 @@ const actionDialog = document.getElementById('action-modal');
 (async () => {
   user = await navUser;
   if (!user) { location.href = 'login.html'; return; }
+  if (user.previewAdmin) document.querySelectorAll('.logout-btn').forEach(button => { button.hidden = true; });
 
   document.getElementById('welcome-msg').textContent  = 'Hoş geldiniz, ' + user.ad + '!';
 

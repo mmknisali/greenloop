@@ -8,6 +8,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Allow: POST');
     err('Geçersiz istek yöntemi.', 405);
 }
+if (strtolower(trim(explode(';', $_SERVER['CONTENT_TYPE'] ?? '', 2)[0])) !== 'application/json') {
+    err('İstek JSON biçiminde olmalıdır.', 415);
+}
 session_write_close();
 rateLimit('chat:' . requestIp(), 20, 600);
 

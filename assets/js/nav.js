@@ -31,6 +31,7 @@ const navUser = Auth.getCurrent();
       el.querySelector('.nav-right').innerHTML = `
         <span class="nav-user">${esc(user.ad)} ${esc(user.soyad)}</span>
         <a href="dashboard.html" class="${home ? 'nav-btn' : 'nav-cta'}">Panel${home ? ' ' + Icon('arrowRight') : ''}</a>`;
+      if (home && user.previewAdmin && location.pathname.endsWith('/')) location.replace('dashboard.html');
     });
   });
 
