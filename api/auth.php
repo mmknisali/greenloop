@@ -2,6 +2,11 @@
 require __DIR__ . '/config.php';
 
 $action = $_GET['action'] ?? '';
+$method = $action === 'me' ? 'GET' : 'POST';
+if (in_array($action, ['register', 'login', 'logout', 'me'], true) && $_SERVER['REQUEST_METHOD'] !== $method) {
+    header('Allow: ' . $method);
+    err('Geçersiz istek yöntemi.', 405);
+}
 
 match ($action) {
     'register' => handleRegister(),
@@ -12,6 +17,7 @@ match ($action) {
 };
 
 function handleRegister(): void {
+    rateLimit('register:' . requestIp(), 30, 600);
     $b     = body();
     $ad    = str($b, 'ad');
     $soyad = str($b, 'soyad');
@@ -48,6 +54,7 @@ function handleRegister(): void {
 }
 
 function handleLogin(): void {
+    rateLimit('login:' . requestIp(), 30, 600);
     $b     = body();
     $email = str($b, 'email');
     $pass  = is_string($b['password'] ?? null) ? $b['password'] : '';

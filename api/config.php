@@ -1,10 +1,5 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: http://localhost');
-header('Access-Control-Allow-Credentials: true');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 // Database settings. The defaults match the devenv setup; a deployment overrides
 // them with environment variables instead of editing this file.
@@ -39,6 +34,12 @@ function db(): PDO {
     return $pdo;
 }
 
+ini_set('session.use_strict_mode', '1');
+session_set_cookie_params([
+    'httponly' => true,
+    'samesite' => 'Lax',
+    'secure'   => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+]);
 session_start();
 
 function resp(mixed $data, int $code = 200): never {
@@ -49,6 +50,37 @@ function resp(mixed $data, int $code = 200): never {
 
 function err(string $msg, int $code = 400): never {
     resp(['ok' => false, 'msg' => $msg], $code);
+}
+
+function rateLimit(string $key, int $max, int $windowSeconds): void {
+    $pdo = db();
+    $now = time();
+    $cutoff = $now - $windowSeconds;
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('INSERT INTO rate_limits (`key`, window_start, hits) VALUES (?, ?, 1)
+            ON DUPLICATE KEY UPDATE hits = IF(window_start <= ?, 1, LEAST(hits + 1, ?)),
+                                    window_start = IF(window_start <= ?, VALUES(window_start), window_start)')
+            ->execute([$key, $now, $cutoff, $max + 1, $cutoff]);
+        $stmt = $pdo->prepare('SELECT window_start, hits FROM rate_limits WHERE `key` = ?');
+        $stmt->execute([$key]);
+        $row = $stmt->fetch();
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+    if (random_int(1, 100) === 1) {
+        $pdo->prepare('DELETE FROM rate_limits WHERE window_start < ?')->execute([$now - 86400]);
+    }
+    if ($row['hits'] > $max) {
+        header('Retry-After: ' . max(1, $row['window_start'] + $windowSeconds - $now));
+        err('Çok fazla istek gönderdiniz. Lütfen daha sonra tekrar deneyin.', 429);
+    }
+}
+
+function requestIp(): string {
+    return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 }
 
 function body(): array {

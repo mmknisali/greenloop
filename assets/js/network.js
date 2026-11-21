@@ -32,8 +32,8 @@ const IL_COORDS = {
 };
 
 function haversine(il1, il2) {
+  if (!Object.hasOwn(IL_COORDS, il1) || !Object.hasOwn(IL_COORDS, il2)) return null;
   const c1 = IL_COORDS[il1], c2 = IL_COORDS[il2];
-  if (!c1 || !c2) return null;
   const R = 6371, dLat = (c2.lat - c1.lat) * Math.PI / 180, dLon = (c2.lon - c1.lon) * Math.PI / 180;
   const a = Math.sin(dLat/2)**2 + Math.cos(c1.lat*Math.PI/180) * Math.cos(c2.lat*Math.PI/180) * Math.sin(dLon/2)**2;
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
@@ -43,7 +43,7 @@ async function init() {
   const cu = await Auth.getCurrent();
   if (cu) {
     document.getElementById('nav-right').innerHTML =
-      `<span class="nav-user">${cu.ad} ${cu.soyad}</span><a href="dashboard.html" class="nav-cta">Panel</a>`;
+      `<span class="nav-user">${escapeHtml(cu.ad)} ${escapeHtml(cu.soyad)}</span><a href="dashboard.html" class="nav-cta">Panel</a>`;
   }
   allCompanies = await Companies.getAll();
   updateStats();
@@ -63,8 +63,8 @@ function populateFilters() {
   const cEl     = document.getElementById('city-filter');
   const sectors = [...new Set(allCompanies.map(c => c.sector).filter(Boolean))].sort();
   const cities  = [...new Set(allCompanies.map(c => c.il).filter(Boolean))].sort();
-  sEl.innerHTML = '<option value="">Tüm Sektörler</option>' + sectors.map(s => `<option value="${s}">${s}</option>`).join('');
-  cEl.innerHTML = '<option value="">Tüm Şehirler</option>'  + cities.map(c  => `<option value="${c}">${c}</option>`).join('');
+  sEl.replaceChildren(new Option('Tüm Sektörler', ''), ...sectors.map(s => new Option(s, s)));
+  cEl.replaceChildren(new Option('Tüm Şehirler', ''), ...cities.map(c => new Option(c, c)));
 }
 
 function renderCards() {
@@ -80,11 +80,11 @@ function renderCards() {
   const grid = document.getElementById('cards-grid');
   if (!data.length) { grid.innerHTML = '<div class="empty-cards"><div class="eic">' + Icon('search') + '</div><p>Sonuç bulunamadı.</p></div>'; return; }
   grid.innerHTML = data.map(c => `
-    <a class="member-card" href="company-detail.html?id=${c.id}">
-      <div class="mc-top"><div class="mc-avatar">${Icon(resolveCompanyIcon(c.emoji))}</div><div><div class="mc-name">${c.name}${c.demo?' <span style="font-size:.6rem;font-weight:700;color:var(--y);border:1px solid rgba(249,199,79,.35);padding:1px 5px;border-radius:100px;vertical-align:middle;">DEMO</span>':''}</div><div class="mc-loc">${Icon('pin')} ${c.il||'—'} / ${c.ilce||'—'}</div></div></div>
-      <div><span class="mc-sector">${c.sector||'Sektör'}</span></div>
-      <div class="mc-tags">${(c.inputs||[]).slice(0,2).map(t=>`<span class="mc-tag in">${Icon('component')} ${t}</span>`).join('')}${(c.outputs||[]).slice(0,2).map(t=>`<span class="mc-tag out">${Icon('recycle')} ${t}</span>`).join('')}</div>
-      <div class="mc-footer"><div class="mc-emission">%${c.emission||0} <span style="font-size:.68rem;font-weight:400;color:rgba(255,255,255,.35)">emisyon azaltımı</span></div><div class="mc-date">${c.date||''}</div></div>
+    <a class="member-card" href="${escapeHtml(companyDetailUrl(c.id))}">
+      <div class="mc-top"><div class="mc-avatar">${Icon(resolveCompanyIcon(c.icon ?? c.emoji))}</div><div><div class="mc-name">${escapeHtml(c.name)}${c.demo?' <span style="font-size:.6rem;font-weight:700;color:var(--y);border:1px solid rgba(249,199,79,.35);padding:1px 5px;border-radius:100px;vertical-align:middle;">DEMO</span>':''}</div><div class="mc-loc">${Icon('pin')} ${escapeHtml(c.il||'—')} / ${escapeHtml(c.ilce||'—')}</div></div></div>
+      <div><span class="mc-sector">${escapeHtml(c.sector||'Sektör')}</span></div>
+      <div class="mc-tags">${(c.inputs||[]).slice(0,2).map(t=>`<span class="mc-tag in">${Icon('component')} ${escapeHtml(t)}</span>`).join('')}${(c.outputs||[]).slice(0,2).map(t=>`<span class="mc-tag out">${Icon('recycle')} ${escapeHtml(t)}</span>`).join('')}</div>
+      <div class="mc-footer"><div class="mc-emission">%${escapeHtml(c.emission||0)} <span style="font-size:.68rem;font-weight:400;color:rgba(255,255,255,.35)">emisyon azaltımı</span></div><div class="mc-date">${escapeHtml(c.date)}</div></div>
     </a>`).join('');
 }
 
@@ -156,10 +156,10 @@ function buildGraph() {
   let minKm = Infinity, nearestIds = new Set();
   edges.forEach(e => { if (e.km !== null && e.km < minKm) { minKm = e.km; nearestIds = new Set([e.source, e.target]); } });
 
-  const byCity = {};
+  const byCity = Object.create(null);
   nodes.forEach(n => { (byCity[n.il || '—'] = byCity[n.il || '—'] || []).push(n); });
   Object.entries(byCity).forEach(([il, group]) => {
-    const coords = IL_COORDS[il] || { lat: 39.0, lon: 35.5 };
+    const coords = Object.hasOwn(IL_COORDS, il) ? IL_COORDS[il] : { lat: 39.0, lon: 35.5 };
     if (group.length === 1) {
       group[0].lat = coords.lat; group[0].lon = coords.lon;
     } else {
@@ -187,7 +187,7 @@ function buildGraph() {
   nodes.forEach(d => {
     const isNear = nearestIds.has(d.id);
     const shortName = d.name.length > 18 ? d.name.slice(0,16) + '…' : d.name;
-    const html = `<div class="cm-wrap">${isNear ? '<div class="cm-ring"></div>' : ''}<div class="cm-core${isNear?' nearest':''}">${Icon(resolveCompanyIcon(d.emoji))}</div><div class="cm-label${d.demo?' cm-demo':''}">${shortName}${d.demo?' · demo':''}</div></div>`;
+    const html = `<div class="cm-wrap">${isNear ? '<div class="cm-ring"></div>' : ''}<div class="cm-core${isNear?' nearest':''}">${Icon(resolveCompanyIcon(d.icon ?? d.emoji))}</div><div class="cm-label${d.demo?' cm-demo':''}">${escapeHtml(shortName)}${d.demo?' · demo':''}</div></div>`;
     const icon = L.divIcon({ className:'company-marker', html, iconSize:[36,54], iconAnchor:[18,18] });
     const marker = L.marker([d.lat, d.lon], { icon, riseOnHover:true }).addTo(markerLayer);
 
@@ -196,7 +196,7 @@ function buildGraph() {
       document.getElementById('tt-loc').textContent    = (d.il||'—')+' / '+(d.ilce||'—');
       document.getElementById('tt-sector').textContent = d.sector||'—';
       document.getElementById('tt-date').textContent   = d.date||'—';
-      document.getElementById('tt-tags').innerHTML = (d.inputs||[]).slice(0,3).map(t=>`<span class="tt-tag in">${t}</span>`).join('')+(d.outputs||[]).slice(0,3).map(t=>`<span class="tt-tag out">${t}</span>`).join('');
+      document.getElementById('tt-tags').innerHTML = (d.inputs||[]).slice(0,3).map(t=>`<span class="tt-tag in">${escapeHtml(t)}</span>`).join('')+(d.outputs||[]).slice(0,3).map(t=>`<span class="tt-tag out">${escapeHtml(t)}</span>`).join('');
       tooltip.classList.add('show');
     });
     marker.on('mousemove', e => {
@@ -206,7 +206,7 @@ function buildGraph() {
       tooltip.style.left = x+'px'; tooltip.style.top = y+'px';
     });
     marker.on('mouseout', () => tooltip.classList.remove('show'));
-    marker.on('click', () => { location.href = 'company-detail.html?id=' + d.id; });
+    marker.on('click', () => { location.href = companyDetailUrl(d.id); });
   });
 }
 

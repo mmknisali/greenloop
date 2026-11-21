@@ -96,9 +96,11 @@ def main():
     s, p = owner.call("POST", "/auth.php?action=login", {"email": email, "password": pw})
     check("login with right password", p.get("ok") is True, (s, p))
 
-    company = {"name": f"Smoke Co {tag}", "sector": "Tekstil", "il": "Istanbul", "ilce": "Kadikoy",
-               "size": "10-50", "email": "info@example.com", "tel": "5551112", "web": "",
-               "emission": 3, "desc": "test", "emoji": "🏭",
+    # These values are stored as text, not sanitized on input: frontend HTML sinks call esc().
+    markup = "<img src=x onerror=alert(1)>"
+    company = {"name": f"Smoke Co {tag} {markup}", "sector": "Tekstil", "il": "İstanbul", "ilce": "Kadıköy",
+               "size": "11-50", "email": "info@example.com", "tel": "5551112", "web": "",
+               "emission": 300, "desc": "test", "icon": "factory",
                "inputs": ["pamuk", "boya"], "outputs": ["atik kumas"]}
     s, p = owner.call("POST", "/companies.php?action=add", company)
     check("add company as owner", s == 201 and p.get("ok") is True, (s, p))
@@ -118,11 +120,12 @@ def main():
     check("public list contains company", len(found) == 1, (s, p.get("ok")))
     if found:
         c = found[0]
+        check("company emission clamped and icon mapped", c.get("emission") == 100 and c.get("icon") == "factory", c)
         check("company carries tags", sorted(c.get("inputs", [])) == ["boya", "pamuk"]
               and c.get("outputs") == ["atik kumas"], c.get("inputs"))
 
     s, p = guest.call("GET", f"/companies.php?action=get&id={urllib.parse.quote(cid or '')}")
-    check("get company by id", p.get("ok") is True and (p.get("data") or {}).get("name") == company["name"], (s, p))
+    check("get company by id preserves raw markup", p.get("ok") is True and (p.get("data") or {}).get("name") == company["name"], (s, p))
     check("public listing hides the owner's login email",
           all("owner_email" not in c and "owner_name" not in c for c in (p.get("data") or [])) and
           "owner_email" not in ((p.get("data") or {}) or {}), p)
@@ -137,10 +140,16 @@ def main():
     s, p = other.call("GET", "/companies.php?action=mine")
     check("other user does not see it in mine", not any(c.get("id") == cid for c in p.get("data", [])), (s, p))
 
-    s, p = guest.call("POST", "/messages.php?action=send", {
-        "toCompanyId": cid, "text": "Merhaba, atik kumasiniz var mi?", "fromName": "Misafir", "fromEmail": "g@example.com"})
+    s, p = owner.call("POST", "/companies.php?action=add", dict(company, web="javascript:alert(1)"))
+    check("unsafe company website rejected", s == 400, (s, p))
+
+    guest_body = {"toCompanyId": cid, "text": markup, "fromName": "Misafir", "fromEmail": "g@example.com"}
+    s, p = guest.call("POST", "/messages.php?action=send", dict(guest_body, website="spam"))
+    check("guest honeypot is rejected", s == 400, (s, p))
+    s, p = guest.call("POST", "/messages.php?action=send", guest_body)
     check("guest sends a message", s == 201 and p.get("ok") is True, (s, p))
     mid = (p.get("data") or {}).get("id")
+    guest_cv = (p.get("data") or {}).get("conversationId")
 
     s, p = guest.call("POST", "/messages.php?action=send", {"toCompanyId": cid, "text": "no name"})
     check("guest without name is 400", s == 400, (s, p))
@@ -156,25 +165,45 @@ def main():
     s, p = guest.call("POST", "/auth.php?action=login", ["not", "an", "object"])
     check("non-object JSON body is answered as JSON", p.get("ok") is False and isinstance(p.get("msg"), str), (s, p))
 
-    s, p = owner.call("GET", "/messages.php?action=threads")
-    check("owner sees a thread", p.get("ok") is True and len(p.get("data", [])) >= 1, (s, p))
+    s, p = other.call("POST", "/messages.php?action=send", {"toCompanyId": cid, "text": "İkinci gönderici"})
+    second = p.get("data") or {}
+    other_cv = second.get("conversationId")
+    check("second sender gets a separate conversation", s == 201 and other_cv and other_cv != guest_cv, (s, p))
 
-    s, p = owner.call("POST", "/messages.php?action=reply", {"companyId": cid, "text": "Evet, var."})
-    check("owner replies", s == 201 and p.get("ok") is True, (s, p))
+    s, p = owner.call("GET", f"/messages.php?action=thread&id={guest_cv}")
+    check("thread preserves raw message markup", s == 200 and any(m.get("text") == markup for m in p.get("data", [])), (s, p))
 
-    s, p = other.call("POST", "/messages.php?action=reply", {"companyId": cid, "text": "hack"})
-    check("non-owner cannot reply", s == 403, (s, p))
+    s, p = owner.call("POST", "/messages.php?action=reply", {"conversationId": other_cv, "text": "İkinci göndericiye yanıt"})
+    check("owner replies to second sender, not first", s == 201 and (p.get("data") or {}).get("to_email") == other_email, (s, p))
+    s, p = owner.call("POST", "/messages.php?action=reply", {"conversationId": guest_cv, "text": "Misafire yanıt"})
+    check("owner replies to guest address", s == 201 and (p.get("data") or {}).get("to_email") == "g@example.com", (s, p))
+    s, p = other.call("POST", "/messages.php?action=reply", {"conversationId": guest_cv, "text": "Yetkisiz"})
+    check("unrelated user cannot reply", s == 403, (s, p))
 
-    s, p = owner.call("GET", "/messages.php?action=poll&since=2000-01-01%2000:00:00")
-    check("poll returns new messages", p.get("ok") is True and len(p.get("data", [])) >= 1, (s, p))
+    s, p = owner.call("GET", "/messages.php?action=poll&since_id=0")
+    poll = p.get("data") or {}
+    last = poll.get("lastId")
+    check("poll returns incoming messages with cursor", s == 200 and last == second.get("cursorId") and
+          [m["id"] for m in poll.get("messages", [])] == [mid, second.get("id")], (s, p))
+    s, p = owner.call("GET", f"/messages.php?action=poll&since_id={last}")
+    check("poll cursor does not repeat messages", (p.get("data") or {}) == {"messages": [], "lastId": last}, (s, p))
+    s, p = other.call("GET", "/messages.php?action=poll&since_id=0")
+    check("only the intended account sees its reply", [m["conversationId"] for m in (p.get("data") or {}).get("messages", [])] == [other_cv], (s, p))
 
     if mid:
-        s, p = owner.call("GET", f"/messages.php?action=read&id={mid}")
-        check("owner marks message read", p.get("ok") is True, (s, p))
-        s, p = other.call("GET", f"/messages.php?action=read&id={mid}")
+        s, p = owner.call("POST", "/messages.php?action=read", {"ids": [mid, second.get("id")]})
+        check("owner marks messages read in a batch", p.get("ok") is True and p.get("updated") == 2, (s, p))
+        s, p = other.call("POST", "/messages.php?action=read", {"ids": [mid]})
         check("other user cannot mark read", s == 403, (s, p))
 
-    s, p = other.call("POST", f"/companies.php?action=delete&id={cid}", {})
+    s, p = owner.call("POST", "/messages.php?action=delete_thread", {"conversationId": other_cv, "type": "in"})
+    check("owner hides its side", s == 200 and p.get("ok") is True, (s, p))
+    s, p = other.call("GET", f"/messages.php?action=thread&id={other_cv}")
+    check("sender still sees its history", s == 200 and len(p.get("data", [])) == 2, (s, p))
+    s, p = owner.call("GET", f"/messages.php?action=thread&id={other_cv}")
+    check("owner no longer sees hidden history", s == 404, (s, p))
+
+    s, p = other.call("DELETE", f"/companies.php?action=delete&id={cid}")
     check("non-owner cannot delete company", s == 403, (s, p))
     s, p = owner.call("DELETE", f"/companies.php?action=delete&id={cid}")
     check("owner deletes company", p.get("ok") is True, (s, p))

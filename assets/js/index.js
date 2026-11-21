@@ -36,7 +36,7 @@ const CHAT = window.GL_CHAT;
   const cu = await Auth.getCurrent();
   if (cu) {
     document.getElementById('nav-right').innerHTML = `
-      <span style="font-size:.82rem;color:var(--text-mid);">${cu.ad} ${cu.soyad}</span>
+      <span style="font-size:.82rem;color:var(--text-mid);">${escapeHtml(cu.ad)} ${escapeHtml(cu.soyad)}</span>
       <a href="dashboard.html" class="nav-btn">Panel ${Icon('arrowRight')}</a>`;
   }
 })();
@@ -84,27 +84,25 @@ const sendBtn = document.getElementById('chat-send');
 const errBox  = document.getElementById('chat-error');
 
 function mdParse(t) {
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  return escapeHtml(t)
     .replace(/```[\w]*\n?([\s\S]*?)```/g, (_,c) => `<pre><code>${c.trim()}</code></pre>`)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+    .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
     .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
     .replace(/(<li>[\s\S]+?<\/li>)/g, '<ul>$1</ul>')
     .replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')
     .replace(/^([^<].+)$/, '<p>$1</p>');
 }
 
-function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
 class ChatError extends Error {}
 
 function addChatNote(text) {
   const wrap = document.createElement('div');
   wrap.className = 'cmsg assistant';
-  wrap.innerHTML = `<div class="cmsg-avatar">${Icon('ai')}</div><div class="cmsg-bubble"><p>${esc(text)}</p></div>`;
+  wrap.innerHTML = `<div class="cmsg-avatar">${Icon('ai')}</div><div class="cmsg-bubble"><p>${escapeHtml(text)}</p></div>`;
   msgBox.appendChild(wrap);
   msgBox.scrollTop = msgBox.scrollHeight;
 }
@@ -189,7 +187,7 @@ async function sendMsg() {
 
   const uDiv = document.createElement('div');
   uDiv.className = 'cmsg user';
-  uDiv.innerHTML = `<div class="cmsg-avatar">${Icon('user')}</div><div class="cmsg-bubble"><p>${esc(text)}</p></div>`;
+  uDiv.innerHTML = `<div class="cmsg-avatar">${Icon('user')}</div><div class="cmsg-bubble"><p>${escapeHtml(text)}</p></div>`;
   msgBox.appendChild(uDiv);
 
   const tyDiv = document.createElement('div');

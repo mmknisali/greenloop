@@ -2,6 +2,14 @@
 require __DIR__ . '/config.php';
 
 $action = $_GET['action'] ?? '';
+$method = match ($action) {
+    'add' => 'POST', 'delete' => 'DELETE', 'all', 'get', 'mine' => 'GET',
+    default => err('Geçersiz işlem.', 404),
+};
+if ($_SERVER['REQUEST_METHOD'] !== $method) {
+    header('Allow: ' . $method);
+    err('Geçersiz istek yöntemi.', 405);
+}
 
 match ($action) {
     'all'    => getAll(),
@@ -83,8 +91,8 @@ function addCompany(): void {
     $tel   = str($b, 'tel');
     $web   = str($b, 'web');
     $desc  = str($b, 'desc');
-    $emoji = str($b, 'emoji') ?: '🏭';
-    $emission = max(0, (int)($b['emission'] ?? 0));
+    $icon  = str($b, 'icon') ?: 'factory';
+    $emission = min(100, max(0, (int) str($b, 'emission')));
 
     if (!$name) err('Şirket adı zorunludur.');
     if (!$sect) err('Sektör seçiniz.');
@@ -100,8 +108,12 @@ function addCompany(): void {
     maxLen($tel, 30, 'Telefon');
     maxLen($web, 190, 'Web adresi');
     maxLen($desc, 5000, 'Açıklama');
-    maxLen($emoji, 50, 'Simge');
+    maxLen($icon, 50, 'Simge');
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) err('Geçerli bir şirket e-postası girin.');
+    if ($web !== '' && (!filter_var($web, FILTER_VALIDATE_URL) ||
+        !in_array(strtolower((string)parse_url($web, PHP_URL_SCHEME)), ['http', 'https'], true))) {
+        err('Geçerli bir HTTP veya HTTPS web adresi girin.');
+    }
 
     // Tags: inputs and outputs, each a short non-empty string.
     $tagRows = [];
@@ -120,11 +132,11 @@ function addCompany(): void {
     $db->beginTransaction();
     try {
         $db->prepare('INSERT INTO companies
-            (id,user_id,name,sector,il,ilce,size,email,tel,web,emission,description,emoji,owner_name,owner_email)
+            (id,user_id,name,sector,il,ilce,size,email,tel,web,emission,description,icon,owner_name,owner_email)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
            ->execute([
                $id, $user['id'], $name, $sect, $il, $ilce, $size, $email, $tel, $web,
-               $emission, $desc, $emoji,
+                $emission, $desc, $icon,
                $user['ad'] . ' ' . $user['soyad'],
                $user['email'],
            ]);

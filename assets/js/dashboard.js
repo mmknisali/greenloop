@@ -1,10 +1,10 @@
 applyIcons();
 let user = null;
 let inputs = [], outputs = [], selIcon = 'factory';
-let currentThreadKey = null, currentThreadType = 'in';
+let currentConversation = null, modalRequest = 0;
 let currentMsgTab = 'in';
-let pollInterval = null;
-let lastPollTime = new Date().toISOString();
+let stopPolling, messageListRequest = 0, lastMessageListHtml;
+const unreadMessages = new Map();
 
 (async () => {
   user = await Auth.getCurrent();
@@ -36,7 +36,7 @@ let lastPollTime = new Date().toISOString();
   mkTag('out-wrap', 'out-field', outputs, 'out');
 
   await renderOverview();
-  startPolling();
+  stopPolling = startMessagePolling(handleNewMessages);
 })();
 
 function setBadge(count) {
@@ -51,27 +51,16 @@ function setBadge(count) {
   }
 }
 
-function startPolling() {
-  pollInterval = setInterval(async () => {
-    const now = new Date().toISOString();
-    const res = await Messages.pollNew(lastPollTime, '', user.id);
-    const msgPageOpen = document.getElementById('tp-messages').classList.contains('active');
-    const overviewOpen = document.getElementById('tp-overview').classList.contains('active');
-    const modalOpen   = document.getElementById('modal-bg').classList.contains('open');
-
-    if (res.ok && res.data.length) {
-      lastPollTime = now;
-      const incoming = res.data.filter(m => m.fromUserId !== user.id && !m.fromCompanyId);
-      if (incoming.length > 0 && !msgPageOpen) {
-        const cur = parseInt(document.getElementById('unread-badge').textContent) || 0;
-        setBadge(cur + incoming.length);
-      }
-      if (modalOpen && currentThreadKey) await refreshModal();
-      if (msgPageOpen) await renderMessages();
-    }
-
-    if (overviewOpen) await renderOverview();
-  }, 3000);
+async function handleNewMessages(messages) {
+  for (const m of messages) {
+    if (!m.read) unreadMessages.set(String(m.id), String(m.conversationId));
+  }
+  setBadge(unreadMessages.size);
+  const thread = currentConversation;
+  if (thread && messages.some(m => String(m.conversationId) === thread.id)) {
+    await refreshModal();
+  }
+  if (document.getElementById('tp-messages').classList.contains('active')) await renderMessages();
 }
 
 function mkTag(wId, iId, arr, cls) {
@@ -81,7 +70,7 @@ function mkTag(wId, iId, arr, cls) {
     arr.forEach((t, i) => {
       const p = document.createElement('div');
       p.className = 'tpill ' + cls;
-      p.innerHTML = `${t}<button>${Icon('close')}</button>`;
+      p.innerHTML = `${escapeHtml(t)}<button>${Icon('close')}</button>`;
       p.querySelector('button').onclick = () => { arr.splice(i, 1); render(); };
       w.insertBefore(p, inp);
     });
@@ -112,10 +101,7 @@ async function goTab(t) {
   setActiveTab(t);
   if (t === 'overview')  await renderOverview();
   if (t === 'companies') await renderCompanies();
-  if (t === 'messages') {
-    setBadge(0);
-    await renderMessages();
-  }
+  if (t === 'messages') await renderMessages();
 }
 
 async function renderOverview() {
@@ -131,18 +117,26 @@ async function renderCompanies() {
   const g   = document.getElementById('company-grid');
   if (!cos.length) { g.innerHTML = '<div class="empty-state"><div class="ei">' + Icon('factory') + '</div><p>Henüz şirket eklemediniz.</p></div>'; return; }
   g.innerHTML = cos.map(c => `
-    <div class="company-card">
-      <div class="cc-head"><div class="cc-emoji">${Icon(resolveCompanyIcon(c.emoji))}</div><div><div class="cc-name">${c.name}</div><div class="cc-loc">${Icon('pin')} ${c.il||''} / ${c.ilce||''}</div></div></div>
-      <div class="cc-tags">${(c.inputs||[]).slice(0,2).map(t=>`<span class="cc-tag in">${Icon('component')} ${t}</span>`).join('')}${(c.outputs||[]).slice(0,2).map(t=>`<span class="cc-tag out">${Icon('recycle')} ${t}</span>`).join('')}</div>
+    <div class="company-card" data-company-id="${escapeHtml(c.id)}">
+      <div class="cc-head"><div class="cc-emoji">${Icon(resolveCompanyIcon(c.icon ?? c.emoji))}</div><div><div class="cc-name">${escapeHtml(c.name)}</div><div class="cc-loc">${Icon('pin')} ${escapeHtml(c.il)} / ${escapeHtml(c.ilce)}</div></div></div>
+      <div class="cc-tags">${(c.inputs||[]).slice(0,2).map(t=>`<span class="cc-tag in">${Icon('component')} ${escapeHtml(t)}</span>`).join('')}${(c.outputs||[]).slice(0,2).map(t=>`<span class="cc-tag out">${Icon('recycle')} ${escapeHtml(t)}</span>`).join('')}</div>
       <div class="cc-footer">
-        <div class="cc-emission">%${c.emission||0} <span style="font-size:.68rem;font-weight:400;color:rgba(255,255,255,.4)">emisyon</span></div>
+        <div class="cc-emission">%${escapeHtml(c.emission||0)} <span style="font-size:.68rem;font-weight:400;color:rgba(255,255,255,.4)">emisyon</span></div>
         <div class="cc-actions">
-          <button class="cc-btn view" onclick="location.href='company-detail.html?id=${c.id}'">Görüntüle</button>
-          <button class="cc-btn del"  onclick="delCompany('${c.id}')">Sil</button>
+          <button class="cc-btn view">Görüntüle</button>
+          <button class="cc-btn del">Sil</button>
         </div>
       </div>
     </div>`).join('');
 }
+
+document.getElementById('company-grid').addEventListener('click', e => {
+  const button = e.target.closest('.cc-btn');
+  if (!button) return;
+  const { companyId } = button.closest('.company-card').dataset;
+  if (button.classList.contains('del')) delCompany(companyId);
+  else location.href = companyDetailUrl(companyId);
+});
 
 async function delCompany(id) {
   if (!confirm('Bu şirket silinsin mi?')) return;
@@ -175,10 +169,10 @@ async function addCompany() {
     inputs: [...inputs], outputs: [...outputs],
     emission: parseInt(document.getElementById('f-emission').value),
     desc: document.getElementById('f-desc').value.trim(),
-    emoji: selIcon,
+    icon: selIcon,
   });
   btn.disabled = false; btn.innerHTML = btnOrigHtml;
-  if (!res.ok) { errEl.innerHTML = Icon('warning') + ' ' + (res.msg || 'Bir hata oluştu.'); errEl.style.display = 'block'; return; }
+  if (!res.ok) { errEl.innerHTML = Icon('warning') + ' ' + escapeHtml(res.msg || 'Bir hata oluştu.'); errEl.style.display = 'block'; return; }
   ['f-name','f-email','f-tel','f-web','f-desc'].forEach(id => document.getElementById(id).value = '');
   ['f-sector','f-size','f-il'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-ilce').value = ''; document.getElementById('f-ilce').disabled = true;
@@ -200,113 +194,125 @@ function switchMsgTab(tab) {
 
 async function renderMessages() {
   const list = document.getElementById('msg-list');
-  if (currentMsgTab === 'in') {
-    const threads = await Messages.getThreadsForCompany();
-    if (!threads.length) { list.innerHTML = '<div class="empty-state"><div class="ei">' + Icon('chat') + '</div><p>Henüz gelen mesaj yok.</p></div>'; return; }
-    const cos   = await Companies.getByUser();
-    const coMap = Object.fromEntries(cos.map(c => [c.id, c]));
-    const html  = threads.map(t => {
-      const co = coMap[t.companyId];
-      const hasUnread = t.msgs.some(m => !m.read && !m.fromCompanyId);
-      return `<div class="msg-thread${hasUnread?' unread':''}" data-tk="${encodeURIComponent(t.key)}" data-type="in">
-        <div class="mt-head" onclick="openThread(this.parentElement)">
-          <div class="mt-avatar">${Icon('user')}</div>
-          <div class="mt-info"><div class="mt-name">${t.senderName}</div><div class="mt-company">${co?co.name:'—'} şirketine</div></div>
-          ${hasUnread?'<div class="unread-dot"></div>':''}
-          <div class="mt-meta">${new Date(t.lastMsg.createdAt).toLocaleDateString('tr-TR')}</div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 1.2rem .8rem;">
-          <div class="mt-preview" style="padding:0;border:none;flex:1;">${(t.lastMsg.text||'').slice(0,100)}${(t.lastMsg.text||'').length>100?'…':''}</div>
-          <button class="mt-delete" onclick="deleteThread('${encodeURIComponent(t.key)}','in')">Sil</button>
-        </div>
-      </div>`;
-    }).join('');
-    if (list.innerHTML !== html) list.innerHTML = html;
-  } else {
-    const threads = await Messages.getSentThreads();
-    if (!threads.length) { list.innerHTML = '<div class="empty-state"><div class="ei">' + Icon('upload') + '</div><p>Henüz mesaj göndermediniz.</p></div>'; return; }
-    const html = threads.map(t => `
-      <div class="msg-thread" data-cid="${t.companyId}" data-type="out">
-        <div class="mt-head" onclick="openSentThread(this.parentElement)">
-          <div class="mt-avatar">${Icon(resolveCompanyIcon(t.companyEmoji))}</div>
-          <div class="mt-info"><div class="mt-name">${t.companyName}</div><div class="mt-company">Gönderilen konuşma</div></div>
-          <div class="mt-meta">${new Date(t.lastMsg.createdAt).toLocaleDateString('tr-TR')}</div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 1.2rem .8rem;">
-          <div class="mt-preview" style="padding:0;border:none;flex:1;">${(t.lastMsg.text||'').slice(0,100)}${(t.lastMsg.text||'').length>100?'…':''}</div>
-          <button class="mt-delete" onclick="deleteThread('${t.companyId}','out')">Sil</button>
-        </div>
-      </div>`).join('');
-    if (list.innerHTML !== html) list.innerHTML = html;
-  }
+  const request = ++messageListRequest;
+  const type = currentMsgTab, inbound = type === 'in';
+  const threads = await (inbound ? Messages.getThreadsForCompany() : Messages.getSentThreads());
+  const companies = inbound && threads.length ? await Companies.getByUser() : [];
+  if (request !== messageListRequest) return;
+  const companyNames = new Map(companies.map(c => [String(c.id), c.name]));
+  const html = threads.map(t => {
+    const companyName = t.companyName ?? companyNames.get(String(t.companyId)) ?? '—';
+    const hasUnread = t.unreadCount != null ? t.unreadCount > 0
+      : (t.msgs ?? [t.lastMsg]).some(m => m && !m.read && (inbound ? !m.fromCompanyId : !!m.fromCompanyId));
+    const preview = String(t.lastMsg?.text ?? '');
+    return `<div class="msg-thread${hasUnread?' unread':''}" data-conversation-id="${escapeHtml(t.conversationId)}"
+                 data-company-name="${escapeHtml(companyName)}" data-type="${type}">
+      <div class="mt-head">
+        <div class="mt-avatar">${Icon(inbound ? 'user' : resolveCompanyIcon(t.companyIcon ?? t.companyEmoji))}</div>
+        <div class="mt-info"><div class="mt-name">${escapeHtml(inbound ? t.senderName : companyName)}</div><div class="mt-company">${inbound ? escapeHtml(companyName) + ' şirketine' : 'Gönderilen konuşma'}</div></div>
+        ${hasUnread?'<div class="unread-dot"></div>':''}
+        <div class="mt-meta">${t.lastMsg ? escapeHtml(new Date(t.lastMsg.createdAt).toLocaleDateString('tr-TR')) : ''}</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 1.2rem .8rem;">
+        <div class="mt-preview" style="padding:0;border:none;flex:1;">${escapeHtml(preview.slice(0,100))}${preview.length>100?'…':''}</div>
+        <button class="mt-delete">Sil</button>
+      </div>
+    </div>`;
+  }).join('') || `<div class="empty-state"><div class="ei">${Icon(inbound ? 'chat' : 'upload')}</div><p>${inbound ? 'Henüz gelen mesaj yok.' : 'Henüz mesaj göndermediniz.'}</p></div>`;
+  if (lastMessageListHtml !== html) list.innerHTML = lastMessageListHtml = html;
 }
 
-async function deleteThread(encodedKey, type) {
+document.getElementById('msg-list').addEventListener('click', e => {
+  const card = e.target.closest('.msg-thread');
+  if (!card?.dataset.conversationId) return;
+  if (e.target.closest('.mt-delete')) deleteThread(card.dataset.conversationId, card.dataset.type);
+  else if (e.target.closest('.mt-head')) openThread(card.dataset);
+});
+
+async function deleteThread(conversationId, type) {
   if (!confirm('Bu konuşma silinsin mi?')) return;
-  const threadKey = decodeURIComponent(encodedKey);
-  const res = await Messages.deleteThread({ threadKey, type });
+  const res = await Messages.deleteThread({ conversationId, type });
   if (!res.ok) { alert('Silinemedi: ' + (res.msg || 'Hata')); return; }
+  for (const [id, threadId] of unreadMessages) {
+    if (threadId === conversationId) unreadMessages.delete(id);
+  }
+  setBadge(unreadMessages.size);
+  if (currentConversation?.id === conversationId) closeModal();
   await renderMessages();
 }
 
-async function openThread(el) {
-  currentThreadKey  = decodeURIComponent(el.dataset.tk);
-  currentThreadType = 'in';
-  const msgs = await Messages.getThreadMsgs(currentThreadKey);
-  await Promise.all(msgs.filter(m => !m.read && !m.fromCompanyId).map(m => Messages.markRead(m.id)));
-  const co = (await Companies.getByUser()).find(c => c.id === currentThreadKey.split('|')[0]);
-  document.getElementById('modal-title').textContent = (co?co.name:'Şirket') + ' — Konuşma';
-  renderModalMsgs(msgs, 'in');
+async function openThread({ conversationId, companyName, type }) {
+  currentConversation = { id: conversationId, type };
+  document.getElementById('modal-title').textContent = (companyName || 'Şirket') + ' — Konuşma';
+  document.getElementById('modal-msgs').textContent = 'Yükleniyor...';
   document.getElementById('modal-bg').classList.add('open');
-  await renderMessages();
+  if (await refreshModal()) await renderMessages();
 }
 
-async function openSentThread(el) {
-  currentThreadKey  = el.dataset.cid;
-  currentThreadType = 'out';
-  const [msgs, co] = await Promise.all([Messages.getConversation(currentThreadKey), Companies.getById(currentThreadKey)]);
-  document.getElementById('modal-title').textContent = (co?co.name:'Şirket') + ' — Konuşma';
-  renderModalMsgs(msgs, 'out');
-  document.getElementById('modal-bg').classList.add('open');
+function isOwnMessage(m, type) {
+  return type === 'in' ? !!m.fromCompanyId : !m.fromCompanyId && String(m.fromUserId) === String(user.id);
 }
 
 function renderModalMsgs(msgs, type) {
   const box = document.getElementById('modal-msgs');
   box.innerHTML = msgs.map(m => {
-    const isMe = type === 'in' ? !!m.fromCompanyId : (!!m.fromUserId && !m.fromCompanyId);
+    const isMe = isOwnMessage(m, type);
     return `<div style="display:flex;flex-direction:column;align-items:${isMe?'flex-end':'flex-start'}">
-      <div class="chat-bubble ${isMe?'me':'them'}">${m.text}</div>
-      <div class="bubble-meta">${m.fromName||'—'} · ${new Date(m.createdAt).toLocaleString('tr-TR')}</div>
+      <div class="chat-bubble ${isMe?'me':'them'}">${escapeHtml(m.text)}</div>
+      <div class="bubble-meta">${escapeHtml(m.fromName||'—')} · ${escapeHtml(new Date(m.createdAt).toLocaleString('tr-TR'))}</div>
     </div>`;
   }).join('');
   box.scrollTop = box.scrollHeight;
 }
 
 async function refreshModal() {
-  if (!currentThreadKey) return;
-  const msgs = currentThreadType === 'in'
-    ? await Messages.getThreadMsgs(currentThreadKey)
-    : await Messages.getConversation(currentThreadKey);
-  renderModalMsgs(msgs, currentThreadType);
+  const thread = currentConversation;
+  if (!thread) return false;
+  const request = ++modalRequest;
+  const msgs = await Messages.getThreadMsgs(thread.id);
+  if (thread !== currentConversation || request !== modalRequest) return false;
+  if (!msgs) {
+    document.getElementById('modal-msgs').textContent = 'Konuşma yüklenemedi.';
+    return false;
+  }
+  renderModalMsgs(msgs, thread.type);
+  const ids = msgs.filter(m => m.id != null && !m.read && !isOwnMessage(m, thread.type)).map(m => m.id);
+  let markedRead = false;
+  for (let i = 0; i < ids.length; i += 200) {
+    const batch = ids.slice(i, i + 200);
+    const res = await Messages.markRead(batch);
+    if (!res.ok) break;
+    batch.forEach(id => unreadMessages.delete(String(id)));
+    markedRead = true;
+  }
+  if (markedRead) setBadge(unreadMessages.size);
+  return markedRead;
 }
 
 async function sendReply() {
-  const text = document.getElementById('reply-ta').value.trim();
-  if (!text || !currentThreadKey) return;
-  document.getElementById('reply-ta').value = '';
-  if (currentThreadType === 'in') await Messages.reply({ companyId: currentThreadKey.split('|')[0], text });
-  else await Messages.send({ toCompanyId: currentThreadKey, text });
-  await refreshModal();
+  const input = document.getElementById('reply-ta');
+  const button = document.querySelector('.modal-send');
+  const draft = input.value, text = draft.trim(), thread = currentConversation;
+  if (!text || !thread || button.disabled) return;
+  button.disabled = true;
+  const res = await Messages.reply({ conversationId: thread.id, type: thread.type, text });
+  button.disabled = false;
+  if (!res.ok) { alert(res.msg || 'Yanıt gönderilemedi.'); return; }
+  if (thread === currentConversation) {
+    if (input.value === draft) input.value = '';
+    await refreshModal();
+  }
   await renderMessages();
 }
 
 function closeModal() {
   document.getElementById('modal-bg').classList.remove('open');
-  currentThreadKey = null;
+  document.getElementById('reply-ta').value = '';
+  currentConversation = null;
 }
 
 async function doLogout() {
-  clearInterval(pollInterval);
+  stopPolling?.();
   await Auth.logout();
   location.href = 'login.html';
 }

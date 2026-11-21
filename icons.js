@@ -54,7 +54,7 @@ const ICONS = {
 };
 
 function Icon(name, cls) {
-  const p = ICONS[name] || ICONS.component;
+  const p = Object.hasOwn(ICONS, name) ? ICONS[name] : ICONS.component;
   return '<svg class="icon' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
     'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
 }
@@ -89,7 +89,7 @@ function applyIcons(root) {
 /* company.icon alanı ya yeni bir ikon anahtarı (ör. "factory") ya da eski bir emoji
    karakteri olabilir; ikisini de aynı SVG ikonuna çözer. */
 function resolveCompanyIcon(value) {
-  if (!value) return 'factory';
-  if (ICONS[value]) return value;
-  return LEGACY_EMOJI_TO_ICON[value] || 'factory';
+  if (typeof value !== 'string') return 'factory';
+  if (Object.hasOwn(ICONS, value)) return value;
+  return Object.hasOwn(LEGACY_EMOJI_TO_ICON, value) ? LEGACY_EMOJI_TO_ICON[value] : 'factory';
 }
