@@ -47,7 +47,7 @@ session_set_cookie_params([
 ]);
 session_start();
 if (!empty($_SESSION['user']['previewAdmin']) &&
-    ($previewScope === null || ($previewScope === 'shared') !== !empty($_SESSION['user']['previewReadOnly']))) {
+    ($_SESSION['user']['previewScope'] ?? null) !== $previewScope) {
     unset($_SESSION['user']);
 }
 
@@ -133,9 +133,8 @@ function maxLen(string $value, int $max, string $label): void {
     if ($chars > $max) err($label . ' en fazla ' . $max . ' karakter olabilir.');
 }
 
-function requireAuth(bool $write = false): array {
+function requireAuth(): array {
     if (empty($_SESSION['user'])) err('Oturum açmanız gerekiyor.', 401);
-    if ($write && !empty($_SESSION['user']['previewReadOnly'])) err('Önizlemede değişiklik yapılamaz.', 403);
     return $_SESSION['user'];
 }
 

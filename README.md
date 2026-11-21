@@ -18,7 +18,7 @@ Optional settings go in the gitignored `.env` (see [`.env.example`](.env.example
 
 Set `GREENLOOP_PREVIEW_ADMIN=1` for a private local preview. The homepage and chat stay at `/`; clicking an account button opens the dashboard without a password as the reserved demo owner, not a site-wide administrator. Leave preview mode off for normal sign-in and production.
 
-For a public demo through a trusted loopback HTTPS tunnel, also set `GREENLOOP_PREVIEW_HOST` to its exact hostname (without a scheme or port). That hostname gets a read-only dashboard with seeded companies only, no owner contact details, and no access to private conversations. Other proxy hostnames do not get a preview session. Keep preview disabled on production deployments.
+For a demo through a trusted loopback HTTPS tunnel, also set `GREENLOOP_PREVIEW_HOST` to its exact hostname (without a scheme or port). That hostname gets the same full dashboard preview as localhost; the tunnel host gets a `Secure` session cookie. Other proxy hostnames do not get a preview session. Since the preview signs in as the demo owner, anyone who can reach the tunnel can add, delete, and message demo data. Keep preview disabled on production deployments.
 
 For manual development, use a local MariaDB instance and PHP 8.2 with `pdo_mysql`, `mbstring`, and `curl` (devenv also includes `mysqli`). Run `mariadb -u db_admin -p < schema.sql` with your schema admin account, then optionally import `seed.sql` with the same client. Both SQL files target `greenloop`. From the repository root, start the local server with `PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t . router.php`. For deployment, use a production web server with an equivalent public allowlist and an authenticated DB account.
 

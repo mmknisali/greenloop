@@ -756,7 +756,6 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
 .empty-state .ei .icon{width:2.5rem;height:2.5rem;}
 .empty-state p{font-size:.88rem;line-height:1.7;}
 
-[data-preview-private][hidden]{display:none;}
 .dashboard-body{display:flex;flex-direction:column;min-height:100vh;}
 .mob-logout-area{display:none;}
 @media(max-width:768px){

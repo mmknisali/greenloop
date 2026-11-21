@@ -5,7 +5,7 @@
   <title>GreenLoop – Panel</title>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="assets/css/shared.css" />
-  <link rel="stylesheet" href="assets/css/dashboard.css?v=2" />
+  <link rel="stylesheet" href="assets/css/dashboard.css?v=3" />
 </head>
 <body>
 <div class="layout">
@@ -15,8 +15,8 @@
     <nav class="sb-nav" aria-label="Panel gezinme">
       <button class="sb-item active" onclick="goTab('overview')"><span class="ic" data-icon="chart"></span>Genel Bakış</button>
       <button class="sb-item" onclick="goTab('companies')"><span class="ic" data-icon="factory"></span>Şirketlerim</button>
-      <button class="sb-item" data-preview-private onclick="goTab('add')"><span class="ic" data-icon="plus"></span>Şirket Ekle</button>
-      <button class="sb-item" data-preview-private onclick="goTab('messages')"><span class="ic" data-icon="chat"></span>Mesajlar<span class="sb-badge" id="unread-badge"></span></button>
+      <button class="sb-item" onclick="goTab('add')"><span class="ic" data-icon="plus"></span>Şirket Ekle</button>
+      <button class="sb-item" onclick="goTab('messages')"><span class="ic" data-icon="chat"></span>Mesajlar<span class="sb-badge" id="unread-badge"></span></button>
       <a class="sb-item" href="network.html"><span class="ic" data-icon="network"></span>Atık Ağı</a>
     </nav>
     <div class="sb-user">
@@ -34,7 +34,6 @@
     </div>
 
     <main class="main">
-      <p class="page-sub" id="preview-note" hidden>Önizleme: Örnek şirketleri inceleyebilirsiniz. Şirket ekleme ve mesajlaşma kapalıdır.</p>
       <div class="tab-page active" id="tp-overview">
         <div class="page-header"><div class="page-title">Genel Bakış</div><div class="page-sub" id="welcome-msg">Hoş geldiniz</div></div>
         <div class="sr-only" id="overview-stats-status" role="status">Özet yükleniyor…</div>
@@ -44,7 +43,7 @@
           <div class="stat-c"><div class="num" id="ov-outputs"><span class="skeleton stat-skeleton" aria-hidden="true"></span></div><div class="lbl">Atık Türü</div></div>
           <div class="stat-c"><div class="num" id="ov-msgs"><span class="skeleton stat-skeleton" aria-hidden="true"></span></div><div class="lbl">Mesaj</div></div>
         </div>
-        <div class="quick-start" data-preview-private>
+        <div class="quick-start">
           <div class="quick-start-title"><span data-icon="rocket" data-icon-class="qs-icon"></span>Hızlı Başlangıç</div>
           <p>Şirketinizi ağa ekleyerek atık eşleştirme sürecini başlatın.</p>
           <button type="button" onclick="goTab('add')">+ Şirket Ekle</button>
@@ -115,10 +114,10 @@
     <button class="mob-tab" id="mt-companies" onclick="goTab('companies')">
       <span class="t-ic" data-icon="factory"></span><span>Şirketler</span>
     </button>
-    <button class="mob-tab" id="mt-add" data-preview-private onclick="goTab('add')">
+    <button class="mob-tab" id="mt-add" onclick="goTab('add')">
       <span class="t-ic" data-icon="plus"></span><span>Ekle</span>
     </button>
-    <button class="mob-tab" id="mt-messages" data-preview-private onclick="goTab('messages')">
+    <button class="mob-tab" id="mt-messages" onclick="goTab('messages')">
       <span class="t-ic" data-icon="chat"></span><span>Mesajlar</span>
       <span class="mob-tab-badge" id="mob-badge"></span>
     </button>
@@ -157,8 +156,8 @@
 
 <script src="icons.js"></script>
 <script src="api.js"></script>
-<script src="assets/js/nav.js?v=2"></script>
+<script src="assets/js/nav.js?v=3"></script>
 <script src="tr-data.js"></script>
-<script src="assets/js/dashboard.js?v=2"></script>
+<script src="assets/js/dashboard.js?v=3"></script>
 </body>
 </html>

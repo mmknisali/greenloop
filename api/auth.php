@@ -96,7 +96,7 @@ function handleMe(): void {
         if ($demo) {
             startSession($demo + [
                 'ad' => 'Önizleme', 'soyad' => 'Yöneticisi',
-                'previewAdmin' => true, 'previewReadOnly' => $scope === 'shared',
+                'previewAdmin' => true, 'previewScope' => $scope,
             ]);
         }
     }
