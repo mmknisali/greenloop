@@ -14,11 +14,11 @@ Open <http://127.0.0.1:8000>. Startup runs `schema.sql` and `seed.sql` before se
 
 The dev setup binds PHP and MariaDB to loopback. Dev MariaDB runs with `skip-grant-tables` and no password; never use this configuration in production. PHP runs with `PHP_CLI_SERVER_WORKERS=4` so chat can stream while other requests are served. `router.php` allowlists public pages, assets, and API entry points; it does not serve `.env`, schema/seed SQL, tests, or internal API files.
 
-Optional settings go in the gitignored `.env` (see [`.env.example`](.env.example)), sourced as shell assignments when devenv starts PHP. Restart the devenv processes after editing it. Never put credentials in `.env.devenv`, which is reserved for non-secret devenv dotenv settings. The API reads `GREENLOOP_DB_HOST`, `GREENLOOP_DB_NAME`, `GREENLOOP_DB_USER`, and `GREENLOOP_DB_PASS`; defaults are `localhost`, `greenloop`, `root`, and an empty password. If running outside devenv, provide these in the PHP process environment; PHP does not read `.env` itself.
+Optional settings go in the gitignored `.env` (see [`.env.example`](.env.example)), sourced as shell assignments when devenv starts PHP. Restart the devenv processes after editing it. Never put credentials in `.env.devenv`, which is reserved for non-secret devenv dotenv settings. The API reads `GREENLOOP_DB_HOST`, `GREENLOOP_DB_NAME`, `GREENLOOP_DB_USER`, and `GREENLOOP_DB_PASS`; defaults are `localhost`, `greenloop`, `root`, and an empty password. If running outside devenv, provide these in the PHP process environment; PHP does not read `.env` itself. `config.yml` (Cloudflare Tunnel) is also gitignored because it names a private tunnel and credential file.
 
 Set `GREENLOOP_PREVIEW_ADMIN=1` for a private local preview. The homepage and chat stay at `/`; clicking an account button opens the dashboard without a password as the reserved demo owner, not a site-wide administrator. Leave preview mode off for normal sign-in and production.
 
-For a demo through a trusted loopback HTTPS tunnel, also set `GREENLOOP_PREVIEW_HOST` to its exact hostname (without a scheme or port). That hostname gets the same full dashboard preview as localhost; the tunnel host gets a `Secure` session cookie. Other proxy hostnames do not get a preview session. Since the preview signs in as the demo owner, anyone who can reach the tunnel can add, delete, and message demo data. Keep preview disabled on production deployments.
+For a demo through a trusted loopback HTTPS tunnel, also set `GREENLOOP_PREVIEW_HOST` to its exact hostname (without a scheme or port). That hostname gets the same fully functional preview as localhost — companies and messages really save — and a `Secure` session cookie. Other proxy hostnames do not get a preview session. Since the preview signs in as the demo owner, anyone who can reach the tunnel can add, delete, and message demo data. Rate limits are keyed by `CF-Connecting-IP` for tunnel requests. Keep preview disabled on production deployments.
 
 For manual development, use a local MariaDB instance and PHP 8.2 with `pdo_mysql`, `mbstring`, and `curl` (devenv also includes `mysqli`). Run `mariadb -u db_admin -p < schema.sql` with your schema admin account, then optionally import `seed.sql` with the same client. Both SQL files target `greenloop`. From the repository root, start the local server with `PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 -t . router.php`. For deployment, use a production web server with an equivalent public allowlist and an authenticated DB account.
 
@@ -67,25 +67,30 @@ Routes are under `/api/` at the site root (the browser uses relative `./api` to 
 
 For `reply` and `delete_thread`, `type: "in"` selects the company side and `type: "out"` (or `"sent"`) selects the sender side. If omitted, the server infers the side, preferring the company side when the caller is both owner and sender.
 
-## Optional AI Chat
+## AI Chat
 
-The homepage assistant calls `api/chat.php`, not the model provider directly. Ollama and browser-side provider settings have been removed. Valid requests stream `text/event-stream`: JSON envelopes carry text deltas (`data.text`), optional `companies` metadata for citations, or a `reset` if a partial answer is discarded before retrying. The stream ends with `data: [DONE]`. Errors before streaming use the normal JSON error envelope. The server keeps the prompt in `api/prompts/master.md` and filters history before sending it upstream. No real key is included. With an empty key, the endpoint streams a short Turkish fallback and makes no upstream request. When enabled, recent chat messages and selected public company fields are sent to the provider; check its [privacy policy](https://opencode.ai/docs/zen#privacy) before enabling chat for users.
+The homepage assistant calls `api/chat.php`, not the model provider directly. Ollama and browser-side provider settings are gone. The server keeps the prompt in `api/prompts/master.md`, filters history, finds relevant seeded companies, and streams `text/event-stream`: JSON envelopes carry text deltas (`data.text`), optional `companies` metadata for citations, or a `reset` if a partial answer is discarded. The stream ends with `data: [DONE]`. Errors before streaming use the normal JSON error envelope. With an empty key, the endpoint streams a short Turkish fallback and makes no upstream request; the browser never holds a key.
 
-To opt in, set `GREENLOOP_CHAT_KEY` in the server environment, set `GREENLOOP_CHAT_MODELS` to an ordered, comma-separated list of chat models your account can use, and set `GREENLOOP_CHAT_BASE_URL` if using a different OpenAI-compatible base. The server appends `/chat/completions` and tries models in order. Keep credentials out of browser code and version control.
+Defaults target AxForge's OpenAI-compatible API with `glm-5.3-flash`:
 
-According to the [OpenCode Zen docs](https://opencode.ai/docs/zen), the OpenAI-compatible base is `https://opencode.ai/inference/openai/v1`. The originally requested `glm-5.3-flash-free` was retired on November 18, 2026. The checkout defaults to `big-pickle,deepseek-v4.1-flash-free,hy4-flash-free`, but Zen's free chat models require OpenCode. For an external client like GreenLoop, explicitly configure eligible paid models or an OpenCode Go plan with its appropriate endpoint and models; the configured free defaults do not imply working external access.
+- `GREENLOOP_CHAT_BASE_URL=https://api.axforge.ai/v1`
+- `GREENLOOP_CHAT_MODELS=glm-5.3-flash` (single model; no fallback chain)
+- `GREENLOOP_CHAT_KEY` — set in the gitignored `.env`; never commit it
+
+GLM-5.3-Flash reasons before answering. The server requests low effort, ignores `reasoning_content`, forwards only `content`, and allows a larger `max_tokens` so reasoning cannot consume the whole response. Upstream 429 is retried once. Rotate any key that appears in chat transcripts or tickets.
 
 ## Tests
 
-With the seeded dev DB and web server running, and no chat key configured, run these from `devenv shell`:
+From `devenv shell`, with the seeded DB and a running server:
 
 ```sh
-python3 tests/smoke_test.py
+python3 tests/smoke_test.py            # standard run: preview OFF, no chat key
+python3 tests/smoke_test.py --preview  # full flows on a preview-enabled server
 python3 tests/smoke_test.py --chat-only
 ```
 
-The full smoke test covers auth, companies, matches, conversations, and no-key chat. `--chat-only` runs just the live chat validation and fallback checks; the rate-limit check requires direct IPv4 loopback. Live tests default to `http://localhost:8000/api`; override with `GREENLOOP_API` for a different dev server. The full suite creates throwaway accounts and other test data. Do not run it against production.
+The standard suite expects an anonymous first `me` call and a key-less chat fallback; it fails clearly if preview or a chat key is active. `--preview` checks full flows with the preview session, expects a real provider answer, and skips the 20-request rate-limit loop so it does not spend provider tokens. Live tests default to `http://localhost:8000/api`; override with `GREENLOOP_API`. Preview chat accepts the Turkish fallback when the provider is busy; set `GREENLOOP_REQUIRE_LIVE_AI=1` to require a real model answer. Do not run smoke tests against production.
 
-`python3 -B tests/smoke_test.py --mock-chat` uses the dev DB but starts its own loopback PHP server and local mock upstream. It checks incremental SSE delivery, fallback after upstream 429/503, and history filtering. It does not use the shared PHP server or require a provider account, real credentials, or an internet connection.
+`python3 -B tests/smoke_test.py --mock-chat` starts its own PHP server and local mock upstream. It verifies incremental SSE delivery, retry after upstream 429/503, and history filtering without a provider account or internet access.
 
 **Browser XSS check:** The API smoke test confirms that markup-like input round-trips as raw text. It does not exercise browser rendering. When changing the UI, check that harmless markup-like names, tags, and message text appear literally in company cards, map tooltips, company details, and message views, not as DOM elements. For chat, also verify that only citations to server-supplied company IDs become links.

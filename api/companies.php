@@ -67,6 +67,7 @@ function getMine(): void {
 
 function addCompany(): void {
     $user = requireAuth();
+    rateLimit('company-add:' . $user['id'], 20, 600);
     $b    = body();
 
     $name  = str($b, 'name');
@@ -114,6 +115,7 @@ function addCompany(): void {
         }
     }
 
+    if (count($tagRows) > 40) err('Etiket sayısı en fazla 40 olabilir.');
     $id = newId('c');
     $db = db();
     $db->beginTransaction();
@@ -145,6 +147,7 @@ function addCompany(): void {
 
 function deleteCompany(): void {
     $user = requireAuth();
+    rateLimit('company-delete:' . $user['id'], 20, 600);
     $id   = $_GET['id'] ?? '';
     if (!$id) err('id gerekli.');
 

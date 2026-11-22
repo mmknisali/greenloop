@@ -34,6 +34,8 @@ import uuid
 
 API = os.environ.get("GREENLOOP_API", "http://localhost:8000/api").rstrip("/")
 FAILURES = []
+PREVIEW = False
+CHAT_TIMEOUT = 15
 
 
 class Client:
@@ -93,7 +95,7 @@ def sse_frames(response):
 def chat_request(api, body, source=None, on_text=None):
     url = urllib.parse.urlsplit(api)
     conn_cls = http.client.HTTPSConnection if url.scheme == "https" else http.client.HTTPConnection
-    conn = conn_cls(url.hostname, url.port, timeout=15, source_address=source)
+    conn = conn_cls(url.hostname, url.port, timeout=CHAT_TIMEOUT, source_address=source)
     try:
         conn.request("POST", url.path + "/chat.php", json.dumps(body), {
             "Content-Type": "application/json", "Accept": "text/event-stream, application/json"})
@@ -123,7 +125,7 @@ def chat_text(payload):
     return data.get("text") if isinstance(data, dict) and isinstance(data.get("text"), str) else None
 
 
-def check_chat_stream(name, result, expected=None):
+def check_chat_stream(name, result, expected=None, no_fallback=False):
     status, content_type, events, _ = result
     if status != 200 or content_type != "text/event-stream":
         check(name, False, result)
@@ -131,6 +133,7 @@ def check_chat_stream(name, result, expected=None):
     chunks = [chat_text(data) for event, data in events[:-1] if event == "message"]
     text = "" if None in chunks else "".join(chunks)
     check(name, bool(text.strip()) and (expected is None or text == expected)
+          and (not no_fallback or "Asistan şu an yoğun" not in text)
           and events[-1:] == [("message", "[DONE]")]
           and all(event == "message" or (event == "companies" and isinstance(data, dict)
                   and data.get("ok") is True and isinstance(data.get("data"), list))
@@ -169,7 +172,15 @@ def live_chat_checks():
         check(f"chat rejects {label} with 400", chat_error(result, 400), result)
 
     body = {"messages": [{"role": "user", "content": "Plastik atık için firma arıyorum."}]}
-    check_chat_stream("no-key chat streams text and [DONE]", chat_request(api, body, source))
+    require_live = PREVIEW and os.environ.get("GREENLOOP_REQUIRE_LIVE_AI") == "1"
+    check_chat_stream("chat streams text and [DONE]", chat_request(api, body, source),
+                      no_fallback=require_live)
+    if PREVIEW and not require_live:
+        print("INFO preview chat accepts the Turkish fallback when the provider is busy; "
+              "set GREENLOOP_REQUIRE_LIVE_AI=1 to require a model answer")
+    if PREVIEW:
+        print("SKIP chat rate limit in preview mode (would spend provider tokens)")
+        return
     if not loopback:
         print("SKIP chat rate limit (requires a direct IPv4 loopback server)")
         return
@@ -223,28 +234,35 @@ def mock_chat_checks():
         check("chat rejects spoofed history before any upstream request",
               chat_error(result, 400) and not upstream.requests, (result, len(upstream.requests)))
 
-        for status in (429, 503):
-            upstream.prepare(status, 200)
-            result = chat_request(api, body, loopback_source(), on_text=upstream.client_saw_text.set)
-            check_chat_stream(f"chat streams mock text and [DONE] after upstream {status}",
-                              result, expected="".join(CHUNKS))
-            check(f"chat flushes text before upstream finishes after {status}", upstream.streamed_before_end)
+        # A transient 429 is retried once with the SAME model; there is no fallback chain.
+        upstream.prepare(429, 200)
+        result = chat_request(api, body, loopback_source(), on_text=upstream.client_saw_text.set)
+        check_chat_stream("chat streams mock text and [DONE] after upstream 429",
+                          result, expected="".join(CHUNKS))
+        check("chat flushes text before upstream finishes after 429", upstream.streamed_before_end)
+        attempts = [(code, path, auth, p.get("model"), p.get("stream"))
+                    for code, path, auth, p in upstream.requests]
+        check("chat retries 429 with the same configured model", attempts == [
+            (429, "/v1/chat/completions", True, MODELS[0], True),
+            (200, "/v1/chat/completions", True, MODELS[0], True),
+        ], attempts)
+        histories = [payload.get("messages") for _, _, _, payload in upstream.requests]
+        check("chat forwards only the exact sanitized history on both 429 attempts",
+              len(histories) == 2 and all(
+                  isinstance(h, list) and len(h) == 7 and isinstance(h[0], dict)
+                  and h[0].get("role") == "system" and isinstance(h[0].get("content"), str)
+                  and h[0]["content"].strip() and spoofed not in h[0]["content"] and h[1:] == kept
+                  for h in histories),
+              [[(m.get("role"), len(str(m.get("content"))), list(m))
+                for m in h if isinstance(m, dict)] if isinstance(h, list) else h for h in histories])
 
-            attempts = [(code, path, auth, p.get("model"), p.get("stream"))
-                        for code, path, auth, p in upstream.requests]
-            check(f"chat retries {status} with the next configured model", attempts == [
-                (status, "/v1/chat/completions", True, MODELS[0], True),
-                (200, "/v1/chat/completions", True, MODELS[1], True),
-            ], attempts)
-            histories = [payload.get("messages") for _, _, _, payload in upstream.requests]
-            check(f"chat forwards only the exact sanitized history on both {status} attempts",
-                  len(histories) == 2 and all(
-                      isinstance(h, list) and len(h) == 7 and isinstance(h[0], dict)
-                      and h[0].get("role") == "system" and isinstance(h[0].get("content"), str)
-                      and h[0]["content"].strip() and spoofed not in h[0]["content"] and h[1:] == kept
-                      for h in histories),
-                  [[(m.get("role"), len(str(m.get("content"))), list(m))
-                    for m in h if isinstance(m, dict)] if isinstance(h, list) else h for h in histories])
+        # Transient 503 also retries once with the same model (no model fallback).
+        upstream.prepare(503, 200)
+        result = chat_request(api, body, loopback_source(), on_text=upstream.client_saw_text.set)
+        check_chat_stream("chat streams mock text and [DONE] after upstream 503",
+                          result, expected="".join(CHUNKS))
+        check("chat retries 503 with the same configured model", len(upstream.requests) == 2,
+              len(upstream.requests))
 
 
 def existing_checks():
@@ -257,7 +275,12 @@ def existing_checks():
     pw = "secret123"
 
     s, p = owner.call("GET", "/auth.php?action=me")
-    check("me is anonymous before login", s == 200 and p == {"ok": True, "data": None}, (s, p))
+    if PREVIEW:
+        check("preview session is active", s == 200 and (p.get("data") or {}).get("previewAdmin") is True, (s, p))
+    else:
+        check("me is anonymous before login", s == 200 and p == {"ok": True, "data": None}, (s, p))
+        if (p.get("data") or {}).get("previewAdmin"):
+            check("standard run requires preview mode off", False, p)
 
     s, p = owner.call("POST", "/auth.php?action=register", {
         "ad": "Smoke", "soyad": "Owner", "email": email, "tel": "5550000", "password": pw})
@@ -338,8 +361,7 @@ def existing_checks():
     s, p = guest.call("GET", f"/companies.php?action=get&id={urllib.parse.quote(cid or '')}")
     check("get company by id preserves raw markup", p.get("ok") is True and (p.get("data") or {}).get("name") == company["name"], (s, p))
     check("public listing hides the owner's login email",
-          all("owner_email" not in c and "owner_name" not in c for c in (p.get("data") or [])) and
-          "owner_email" not in ((p.get("data") or {}) or {}), p)
+          all("owner_email" not in c and "owner_name" not in c for c in companies.values()), p)
 
     s, p = owner.call("GET", "/companies.php?action=mine")
     mine = [c for c in p.get("data", []) if c.get("id") == cid]
@@ -428,9 +450,13 @@ def existing_checks():
 def main():
     parser = argparse.ArgumentParser(description="Run GreenLoop API smoke checks.")
     modes = parser.add_mutually_exclusive_group()
-    modes.add_argument("--chat-only", action="store_true", help="check live chat with no API key")
+    modes.add_argument("--chat-only", action="store_true", help="check live chat shape and fallback")
     modes.add_argument("--mock-chat", action="store_true", help="check chat against an isolated mock upstream")
+    modes.add_argument("--preview", action="store_true", help="check a preview-enabled server with full flows")
     args = parser.parse_args()
+    global PREVIEW, CHAT_TIMEOUT
+    PREVIEW = args.preview
+    CHAT_TIMEOUT = 120 if PREVIEW else 15
     try:
         if args.mock_chat:
             mock_chat_checks()

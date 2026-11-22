@@ -9,9 +9,8 @@ define('DB_USER', getenv('GREENLOOP_DB_USER') ?: 'root');
 define('DB_PASS', getenv('GREENLOOP_DB_PASS') ?: '');
 define('DB_CHARSET', 'utf8mb4');
 define('CHAT_KEY', trim(getenv('GREENLOOP_CHAT_KEY') ?: ''));
-define('CHAT_BASE_URL', rtrim(trim(getenv('GREENLOOP_CHAT_BASE_URL') ?: 'https://opencode.ai/inference/openai/v1'), '/'));
-// Zen documents these as limited-time free models in OpenCode, not free third-party API access.
-define('CHAT_MODELS', getenv('GREENLOOP_CHAT_MODELS') ?: 'big-pickle,deepseek-v4.1-flash-free,hy4-flash-free');
+define('CHAT_BASE_URL', rtrim(trim(getenv('GREENLOOP_CHAT_BASE_URL') ?: 'https://api.axforge.ai/v1'), '/'));
+define('CHAT_MODELS', getenv('GREENLOOP_CHAT_MODELS') ?: 'glm-5.3-flash');
 
 // Uncaught errors (a dropped database, a bug) answer with the same JSON envelope
 // as every other failure and keep the details in the server log, not the response.
@@ -107,6 +106,13 @@ function rateLimit(string $key, int $max, int $windowSeconds): void {
 }
 
 function requestIp(): string {
+    // The loopback tunnel hides every visitor behind 127.0.0.1. Trust Cloudflare's
+    // client IP only for those requests; direct callers can still forge it, so this
+    // is a preview-harness convenience, not a production security boundary.
+    if (PHP_SAPI === 'cli-server' && ($_SERVER['REMOTE_ADDR'] ?? '') === '127.0.0.1') {
+        $client = trim($_SERVER['HTTP_CF_CONNECTING_IP'] ?? '');
+        if (filter_var($client, FILTER_VALIDATE_IP)) return $client;
+    }
     return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 }
 

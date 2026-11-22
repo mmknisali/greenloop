@@ -222,6 +222,7 @@ function lockConversation(PDO $db, int $id): array|false {
 
 function sendReply(): void {
     $user = requireAuth();
+    rateLimit('reply:' . $user['id'], 30, 600);
     $b = body();
     $id = messageNumber($b['conversationId'] ?? null, 'conversationId');
     $text = str($b, 'text');
@@ -284,6 +285,7 @@ function participantSide(array $cv, string $userId, string $type): ?string {
 
 function deleteThread(): void {
     $user = requireAuth();
+    rateLimit('thread-hide:' . $user['id'], 30, 600);
     $b = body();
     $id = messageNumber($b['conversationId'] ?? null, 'conversationId');
     $type = conversationSide($b);

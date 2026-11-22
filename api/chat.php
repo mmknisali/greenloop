@@ -55,9 +55,13 @@ try {
         array_unshift($messages, ['role' => 'system', 'content' => str_replace('{{context}}', $context, $prompt)]);
 
         $models = array_unique(array_filter(array_map('trim', explode(',', CHAT_MODELS)), 'strlen'));
-        foreach (array_slice($models, 0, 5) as $model) {
-            if (connection_aborted()) exit;
-            [$complete, $started] = streamChatModel($model, $messages);
+        $model = $models[0] ?? '';
+        if ($model !== '' && !connection_aborted()) {
+            for ($attempt = 0; $attempt < 3 && !connection_aborted(); ++$attempt) {
+                [$complete, $started, $status] = streamChatModel($model, $messages);
+                if ($complete || !in_array($status, [429, 503, 504], true)) break;
+                sleep($attempt === 0 ? 3 : 8);
+            }
             if ($complete) chatDone();
             if ($started) chatEvent(null, 'reset');
         }
@@ -112,10 +116,12 @@ function streamChatModel(string $model, array $messages): array {
         CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_CONNECTTIMEOUT => 4,
-        CURLOPT_TIMEOUT => 15,
+        CURLOPT_TIMEOUT => 90,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: text/event-stream', 'Authorization: Bearer ' . CHAT_KEY],
         CURLOPT_POSTFIELDS => json_encode([
-            'model' => $model, 'messages' => $messages, 'stream' => true, 'temperature' => 0.3, 'max_tokens' => 400,
+            'model' => $model, 'messages' => $messages, 'stream' => true, 'temperature' => 0.3,
+            // GLM-5.3-Flash reasons before answering; reasoning counts against max_tokens.
+            'max_tokens' => 1500, 'chat_template_kwargs' => ['reasoning_effort' => 'low'],
         ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
         CURLOPT_WRITEFUNCTION => static function (CurlHandle $ch, string $chunk) use (&$buffer, &$sent, &$finished, &$bytes): int {
             $length = strlen($chunk);
@@ -147,6 +153,7 @@ function streamChatModel(string $model, array $messages): array {
         },
     ]);
     $ok = curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     curl_close($ch);
-    return [$ok && $sent && $finished, $sent];
+    return [$ok && $sent && $finished, $sent, $status];
 }
