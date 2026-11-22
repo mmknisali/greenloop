@@ -17,7 +17,7 @@ nav {
 nav.scrolled { box-shadow:0 4px 24px rgba(26,58,42,.10); }
 .nav-sentinel { position:absolute; top:0; left:0; width:1px; height:40px; pointer-events:none; }
 .nav-logo {
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:800;
   font-size:1.35rem;
   color:var(--gm);
@@ -88,7 +88,7 @@ nav.scrolled { box-shadow:0 4px 24px rgba(26,58,42,.10); }
   margin-bottom:1.6rem;
 }
 h1 {
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:clamp(2rem,2.8vw,2.5rem);
   font-weight:800;
   line-height:1.12;
@@ -165,7 +165,7 @@ section { padding:5.5rem 5vw; }
   margin-bottom:1rem;
 }
 h2 {
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:clamp(1.8rem,3vw,2.6rem);
   font-weight:800;
   line-height:1.2;
@@ -250,7 +250,7 @@ h2 {
 }
 .feature-icon .icon{width:18px;height:18px;}
 .feature-body strong {
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:700;
   font-size:.92rem;
   color:var(--td);
@@ -270,7 +270,7 @@ h2 {
 .band-item { padding:1.4rem 1rem; display:flex; flex-direction:column; gap:.35rem; }
 .band-item + .band-item { border-left:1px solid var(--green-rgba); }
 .band-value {
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:2rem;
   font-weight:800;
   color:var(--gm);
@@ -278,14 +278,14 @@ h2 {
 }
 .band-key { font-size:.8rem; color:var(--tm); }
 .material-heading {
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:1rem;
   color:var(--td);
   margin-top:2.2rem;
 }
 .material-list { display:flex; flex-wrap:wrap; gap:.6rem 1.6rem; margin-top:.9rem; }
 .material-item { display:inline-flex; gap:.45rem; align-items:baseline; font-size:.88rem; color:var(--td); }
-.material-item strong { font-family:'Syne',sans-serif; color:var(--gm); }
+.material-item strong { font-family:'Space Grotesk',sans-serif; color:var(--gm); }
 .skeleton-line {
   display:block;
   width:8rem;
@@ -360,7 +360,7 @@ h2 {
 }
 .chat-header-avatar .icon{width:19px;height:19px;}
 .chat-header-info strong {
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:.95rem;
   font-weight:700;
   color:var(--white);
@@ -459,7 +459,7 @@ h2 {
 }
 .cmsg-bubble h3{
   color:var(--gl);
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   margin-bottom:4px;
   font-size:.95rem;
 }
@@ -536,7 +536,7 @@ h2 {
   border-radius:12px;
   padding:.75rem 1rem;
   font-size:.9rem;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
   resize:none;
   min-height:44px;
   max-height:140px;

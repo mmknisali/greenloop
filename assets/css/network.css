@@ -1,5 +1,5 @@
 /* GreenLoop – network.css */
-html,body{font-family:'DM Sans',sans-serif;background:#0d1f14;color:#fff;min-height:100%;}
+html,body{font-family:'Manrope',sans-serif;background:#0d1f14;color:#fff;min-height:100%;}
 
 nav{
   position:sticky;
@@ -14,7 +14,7 @@ nav{
   border-bottom:1px solid rgba(82,183,136,.18);
 }
 .nav-logo{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:800;
   font-size:1.25rem;
   color:var(--gb);
@@ -94,7 +94,7 @@ nav{
   margin-bottom:.6rem;
 }
 .page-hero h1{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:clamp(1.6rem,3vw,2.2rem);
   font-weight:800;
   color:#fff;
@@ -120,7 +120,7 @@ nav{
   min-width:80px;
 }
 .hstat-num{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:1.5rem;
   font-weight:800;
   color:var(--y);
@@ -142,7 +142,7 @@ nav{
   background:none;
   border:none;
   cursor:pointer;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
   font-size:.88rem;
   font-weight:500;
   color:rgba(255,255,255,.38);
@@ -186,7 +186,7 @@ nav{
   border-radius:9px;
   padding:.55rem .9rem;
   font-size:.85rem;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
   transition:border-color .2s;
 }
 .filter-input::placeholder{color:rgba(255,255,255,.25);}
@@ -197,7 +197,7 @@ nav{
   border-radius:9px;
   padding:.55rem .85rem;
   font-size:.83rem;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
   cursor:pointer;
 }
 .filter-select option{background:var(--gd);}
@@ -248,7 +248,7 @@ nav{
 }
 .mc-avatar .icon{width:21px;height:21px;}
 .mc-name{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:700;
   font-size:.92rem;
   color:#fff;
@@ -322,7 +322,7 @@ nav{
   border-top:1px solid rgba(82,183,136,.08);
 }
 .mc-emission{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:.92rem;
   font-weight:800;
   color:var(--y);
@@ -370,7 +370,7 @@ nav{
 #graph-map:focus-visible{outline-offset:-2px;}
 .leaflet-container{
   background:#0d1f14 !important;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
 }
 .graph-basemap{filter:grayscale(1) invert(.92) brightness(.85);}
 .leaflet-control-attribution{
@@ -464,7 +464,7 @@ nav{
 }
 #g-tooltip.show{opacity:1;visibility:visible;}
 .tt-name{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:800;
   font-size:.92rem;
   color:#fff;

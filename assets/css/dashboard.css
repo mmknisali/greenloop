@@ -1,5 +1,5 @@
 /* GreenLoop – dashboard.css */
-html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-height:100%;}
+html,body{font-family:'Manrope',sans-serif;background:#0a1a10;color:#fff;min-height:100%;}
 
 .layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh;}
 
@@ -11,7 +11,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   flex-direction:column;
 }
 .sb-brand{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:800;
   font-size:1.15rem;
   color:var(--gb);
@@ -96,7 +96,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   justify-content:space-between;
 }
 .mob-logo{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:800;
   font-size:1.1rem;
   color:var(--gb);
@@ -128,7 +128,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   background:none;
   color:rgba(255,255,255,.35);
   font-size:.62rem;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
   font-weight:500;
   position:relative;
   min-width:52px;
@@ -153,7 +153,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
 .main{padding:2rem 2.5rem;overflow-y:auto;}
 .page-header{margin-bottom:2rem;}
 .page-title{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:800;
   font-size:1.5rem;
   color:#fff;
@@ -189,7 +189,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   padding:1.2rem 1.4rem;
 }
 .stat-c .num{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:1.8rem;
   font-weight:800;
   color:var(--y);
@@ -214,7 +214,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   padding:1.4rem 1.6rem;
 }
 .quick-start-title{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:700;
   font-size:.9rem;
   color:var(--gl);
@@ -270,7 +270,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
 }
 .cc-emoji .icon{width:20px;height:20px;}
 .cc-name{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:700;
   font-size:.95rem;
   color:#fff;
@@ -313,7 +313,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   border-top:1px solid rgba(82,183,136,.1);
 }
 .cc-emission{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:.95rem;
   font-weight:800;
   color:var(--y);
@@ -326,7 +326,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   border-radius:7px;
   border:none;
   cursor:pointer;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
   font-weight:600;
 }
 .cc-btn.view{background:rgba(82,183,136,.15);color:var(--gl);}
@@ -344,7 +344,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   display:flex;
   align-items:center;
   gap:.4rem;
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:.72rem;
   font-weight:700;
   letter-spacing:.1em;
@@ -376,7 +376,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   border-radius:9px;
   padding:.62rem .9rem;
   font-size:.87rem;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
   outline:none;
   transition:border-color .2s;
 }
@@ -407,7 +407,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   outline:none;
   color:rgba(255,255,255,.9);
   font-size:.85rem;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
   flex:1;
   min-width:90px;
   padding:2px 0;
@@ -448,7 +448,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
 }
 .slider-wrap input[type=range]{flex:1;accent-color:var(--gb);}
 .slider-val{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:800;
   font-size:1rem;
   color:var(--y);
@@ -482,7 +482,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   color:#fff;
   border-radius:10px;
   padding:.8rem 2rem;
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:700;
   font-size:.9rem;
   cursor:pointer;
@@ -627,7 +627,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
 .action-modal{max-width:360px;overflow:auto;}
 .action-text{padding:1.2rem 1.5rem;color:rgba(255,255,255,.85);font-size:.88rem;line-height:1.6;overflow-wrap:anywhere;}
 .action-buttons{display:flex;justify-content:flex-end;gap:.5rem;padding:0 1.5rem 1.2rem;}
-.action-buttons button{padding:.45rem .85rem;font:600 .82rem 'DM Sans',sans-serif;}
+.action-buttons button{padding:.45rem .85rem;font:600 .82rem 'Manrope',sans-serif;}
 .action-cancel{
   background:var(--white-rgba);
   border:1px solid var(--green-rgba);
@@ -644,7 +644,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   justify-content:space-between;
 }
 .modal-title{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:700;
   font-size:1rem;
   color:#fff;
@@ -720,7 +720,7 @@ html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-hei
   border-radius:9px;
   padding:.6rem .9rem;
   font-size:.85rem;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
   resize:none;
   outline:none;
   min-height:40px;

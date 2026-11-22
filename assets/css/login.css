@@ -1,5 +1,5 @@
 /* GreenLoop – login.css */
-html,body{min-height:100%;font-family:'DM Sans',sans-serif;background:#0d1f14;color:#fff;}
+html,body{min-height:100%;font-family:'Manrope',sans-serif;background:#0d1f14;color:#fff;}
 
 .page{
   min-height:100vh;
@@ -36,7 +36,7 @@ html,body{min-height:100%;font-family:'DM Sans',sans-serif;background:#0d1f14;co
   left:-80px;
 }
 .brand{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:800;
   font-size:1.5rem;
   color:var(--gb);
@@ -46,7 +46,7 @@ html,body{min-height:100%;font-family:'DM Sans',sans-serif;background:#0d1f14;co
 }
 .brand .dot{color:var(--y);}
 .left h2{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:clamp(1.8rem,3vw,2.4rem);
   font-weight:800;
   color:#fff;
@@ -120,7 +120,7 @@ html,body{min-height:100%;font-family:'DM Sans',sans-serif;background:#0d1f14;co
   font-weight:600;
 }
 .form-title{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:800;
   font-size:1.4rem;
   color:#fff;
@@ -152,7 +152,7 @@ html,body{min-height:100%;font-family:'DM Sans',sans-serif;background:#0d1f14;co
   border-radius:10px;
   padding:.7rem 1rem;
   font-size:.9rem;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
   outline:none;
   transition:border-color .2s;
 }
@@ -170,7 +170,7 @@ html,body{min-height:100%;font-family:'DM Sans',sans-serif;background:#0d1f14;co
   color:#fff;
   border-radius:11px;
   padding:.9rem;
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:700;
   font-size:.95rem;
   cursor:pointer;

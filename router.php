@@ -7,7 +7,7 @@ if (in_array($path, [
     '/', '/index.html', '/login.html', '/dashboard.html', '/network.html', '/company-detail.html',
     '/api.js', '/tr-data.js', '/icons.js',
     '/api/auth.php', '/api/companies.php', '/api/messages.php', '/api/matches.php', '/api/chat.php',
-], true) || preg_match('~^/assets/(?:css/[a-z-]+\.css|js/[a-z-]+\.js)$~D', $path)) {
+], true) || preg_match('~^/assets/(?:css/[a-z-]+\.css|js/[a-z-]+\.js|fonts/[a-z-]+\.woff2)$~D', $path)) {
     return false;
 }
 

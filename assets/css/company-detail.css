@@ -1,5 +1,5 @@
 /* GreenLoop – company-detail.css */
-html,body{font-family:'DM Sans',sans-serif;background:#0a1a10;color:#fff;min-height:100%;}
+html,body{font-family:'Manrope',sans-serif;background:#0a1a10;color:#fff;min-height:100%;}
 
 nav{
   position:sticky;
@@ -14,7 +14,7 @@ nav{
   border-bottom:1px solid rgba(82,183,136,.14);
 }
 .nav-logo{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:800;
   font-size:1.2rem;
   color:var(--gb);
@@ -72,7 +72,7 @@ nav{
 .hero-avatar .icon{width:38px;height:38px;}
 .hero-info{flex:1;}
 .company-name{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:clamp(1.6rem,3vw,2.2rem);
   font-weight:800;
   color:#fff;
@@ -108,7 +108,7 @@ nav{
   border-radius:100px;
 }
 .emission-big{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:2.2rem;
   font-weight:800;
   color:var(--y);
@@ -136,7 +136,7 @@ nav{
   margin-bottom:1.5rem;
 }
 .section-title{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-size:.75rem;
   font-weight:700;
   letter-spacing:.1em;
@@ -199,7 +199,7 @@ nav{
 }
 .hero-emission{text-align:right;flex-shrink:0;}
 .tag-empty{font-size:.82rem;color:rgba(255,255,255,.25);}
-.emission-value{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:var(--y);}
+.emission-value{font-family:'Space Grotesk',sans-serif;font-size:2rem;font-weight:800;color:var(--y);}
 .not-found-icon{margin-bottom:1rem;opacity:.3;}
 .not-found-icon .icon{width:3rem;height:3rem;}
 .not-found a,.info-item a,.contact-owner a,.contact-hint a{color:var(--gb);}
@@ -223,7 +223,7 @@ nav{
   padding:1.2rem 1.4rem;
 }
 .contact-head-title{
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:700;
   font-size:1rem;
   color:#fff;
@@ -254,7 +254,7 @@ nav{
   border-radius:9px;
   padding:.6rem .85rem;
   font-size:.85rem;
-  font-family:'DM Sans',sans-serif;
+  font-family:'Manrope',sans-serif;
   outline:none;
   transition:border-color .2s;
 }
@@ -274,7 +274,7 @@ nav{
   color:#fff;
   border-radius:10px;
   padding:.8rem;
-  font-family:'Syne',sans-serif;
+  font-family:'Space Grotesk',sans-serif;
   font-weight:700;
   font-size:.88rem;
   cursor:pointer;
