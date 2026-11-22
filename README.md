@@ -30,8 +30,6 @@ The repeatable `seed.sql` adds 20 demo companies to MariaDB, with stable IDs `de
 
 ## Network and Conversations
 
-The public homepage reads `matches.php?action=stats` and shows live company, material and match counts. The same statistics are injected into the assistant context so it can answer questions about platform activity. Imagery comes from Wikimedia Commons files (public domain / CC0) and is described with Turkish alt text.
-
 The network map connects a producer's output tags to another company's input tags. Case, spacing, and Turkish diacritics are normalized for matching; original tags are kept for display. Material overlap drives the score, with smaller bonuses for proximity and the same sector. Company cards and marker tooltips show the best partner, score, material reasons, and estimated province-center distance when known. Markers can be focused with the keyboard and opened with Enter. The company list remains available without Leaflet; if only map tiles fail, the markers and connections remain. The map uses OpenStreetMap tiles with attribution. Shared navigation in `assets/js/nav.js` preserves the different page layouts and requests auth state once per page.
 
 A conversation belongs to a company and either a signed-in sender or a guest identified by normalized email. The dashboard separates incoming and sent conversations. Hiding a thread only hides the caller's side; sending a new message restores both sides. Guest messages and replies are stored in GreenLoop, but **no email is delivered to guests**, and guests have no in-app thread history.

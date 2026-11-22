@@ -21,12 +21,9 @@ const navUser = Auth.getCurrent();
     const variant = el.dataset.nav;
     el.innerHTML = templates[variant]();
     if (variant === 'home') {
-      const sentinel = document.createElement('div');
-      sentinel.className = 'nav-sentinel';
-      document.body.prepend(sentinel);
-      new IntersectionObserver(([entry]) => {
-        el.classList.toggle('scrolled', !entry.isIntersecting);
-      }).observe(sentinel);
+      const sync = () => el.classList.toggle('scrolled', window.scrollY > 40);
+      window.addEventListener('scroll', sync, { passive: true });
+      sync();
     }
     if (variant === 'home' || variant === 'network') navUser.then(user => {
       if (!user || user.previewAdmin) return;
