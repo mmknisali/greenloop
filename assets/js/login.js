@@ -17,9 +17,22 @@ if (new URLSearchParams(location.search).get('tab') === 'register') switchTab('r
 function switchTab(t) {
   document.getElementById('login-form').style.display    = t === 'login'    ? 'block' : 'none';
   document.getElementById('register-form').style.display = t === 'register' ? 'block' : 'none';
-  document.getElementById('tab-login').classList.toggle('active', t === 'login');
-  document.getElementById('tab-register').classList.toggle('active', t === 'register');
+  for (const name of ['login', 'register']) {
+    const tab = document.getElementById(`tab-${name}`);
+    const selected = name === t;
+    tab.classList.toggle('active', selected);
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  }
 }
+
+document.querySelector('.auth-tabs').addEventListener('keydown', event => {
+  if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+  event.preventDefault();
+  const next = document.activeElement.id === 'tab-login' ? 'register' : 'login';
+  switchTab(next);
+  document.getElementById(`tab-${next}`).focus();
+});
 
 function showErr(id, msg) {
   const el = document.getElementById(id);

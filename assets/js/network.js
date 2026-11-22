@@ -42,11 +42,16 @@ async function refreshNetwork() {
   const [companies, result] = await Promise.all([Companies.getAll(), Matches.network()]);
   allCompanies = companies;
   matchesAvailable = Array.isArray(result.data?.edges);
-  indexMatches(matchesAvailable ? result.data.edges : []);
+  const edges = matchesAvailable ? result.data.edges : [];
+  indexMatches(edges);
   updateStats();
   populateFilters();
   renderCards();
-  buildGraph();
+  const signature = JSON.stringify([companies.map(c => c.id), edges.map(e => [e.fromId, e.toId, e.score])]);
+  if (signature !== graphSignature) {
+    graphSignature = signature;
+    buildGraph();
+  }
 }
 
 function indexMatches(edges) {
@@ -161,15 +166,10 @@ const graphMap = document.getElementById('graph-map');
 const tooltip = document.getElementById('g-tooltip');
 const provinceGroups = new Map();
 const graphLines = [];
-let map, edgeLayer, markerLayer, tooltipMarker;
+let map, edgeLayer, markerLayer, tooltipMarker, graphSignature = '';
 
 function initMap() {
-  let hasLeafletStyles = false;
-  try {
-    // An unsuccessful stylesheet request can still leave a sheet with no readable rules.
-    hasLeafletStyles = Boolean(document.getElementById('leaflet-css').sheet?.cssRules.length);
-  } catch (_) {}
-  if (typeof L === 'undefined' || !hasLeafletStyles) {
+  if (typeof L === 'undefined') {
     document.getElementById('graph-status').textContent = 'Harita yüklenemedi. Şirketler sekmesinden ağı inceleyebilirsiniz.';
     return;
   }
@@ -332,4 +332,9 @@ function positionTooltip() {
 
 initMap();
 init();
-window.addEventListener('focus', refreshNetwork);
+let lastNetworkRefresh = 0;
+window.addEventListener('focus', () => {
+  if (Date.now() - lastNetworkRefresh < 30000) return;
+  lastNetworkRefresh = Date.now();
+  refreshNetwork();
+});

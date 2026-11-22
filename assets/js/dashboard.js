@@ -12,6 +12,7 @@ const actionDialog = document.getElementById('action-modal');
   user = await navUser;
   if (!user) { location.href = 'login.html'; return; }
   if (user.previewAdmin) document.querySelectorAll('.logout-btn').forEach(button => { button.hidden = true; });
+  setActiveTab('overview');
 
   document.getElementById('welcome-msg').textContent  = 'Hoş geldiniz, ' + user.ad + '!';
 
@@ -26,6 +27,17 @@ const actionDialog = document.getElementById('action-modal');
   await renderOverview();
   stopPolling = startMessagePolling(handleNewMessages);
 })();
+
+function syncUnreadFromThreads(threads) {
+  for (const thread of threads || []) {
+    for (const m of thread.msgs || []) {
+      if (m.id != null && !m.fromCompanyId && !m.read) {
+        unreadMessages.set(String(m.id), String(m.conversationId ?? thread.conversationId));
+      }
+    }
+  }
+  setBadge(unreadMessages.size);
+}
 
 function setBadge(count) {
   const desk  = document.getElementById('unread-badge');
@@ -95,12 +107,17 @@ function mkTag(wId, iId, arr, cls) {
 
 function setActiveTab(t) {
   document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.mob-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sb-item, .mob-tab').forEach(b => {
+    b.classList.remove('active');
+    b.removeAttribute('aria-current');
+  });
   document.getElementById('tp-' + t).classList.add('active');
-  document.querySelector(`.sb-item[onclick="goTab('${t}')"]`)?.classList.add('active');
-  const mobBtn = document.getElementById('mt-' + t);
-  if (mobBtn) mobBtn.classList.add('active');
+  for (const button of [document.querySelector(`.sb-item[onclick="goTab('${t}')"]`),
+                        document.getElementById('mt-' + t)]) {
+    if (!button || button.hidden) continue;
+    button.classList.add('active');
+    button.setAttribute('aria-current', 'page');
+  }
 }
 
 async function goTab(t) {
@@ -167,6 +184,7 @@ async function renderOverview() {
   const data = await Promise.all([Companies.getByUser(), Messages.getThreadsForCompany()]).catch(() => null);
   if (request !== overviewRequest) return;
   const [cos, threads] = data ?? [];
+  syncUnreadFromThreads(threads);
   document.getElementById('ov-companies').textContent = cos?.length ?? '—';
   document.getElementById('ov-inputs').textContent    = cos?.reduce((s, c) => s + (c.inputs  || []).length, 0) ?? '—';
   document.getElementById('ov-outputs').textContent   = cos?.reduce((s, c) => s + (c.outputs || []).length, 0) ?? '—';
@@ -263,6 +281,7 @@ function switchMsgTab(tab) {
     button.classList.toggle('active', selected);
     button.setAttribute('aria-pressed', String(selected));
   });
+  document.getElementById('msg-list').setAttribute('aria-labelledby', `mtab-${tab}`);
   renderMessages();
 }
 

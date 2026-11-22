@@ -165,7 +165,12 @@ async function readReply(res, bubble) {
       finished = true;
       return;
     }
-    const envelope = JSON.parse(payload);
+    let envelope;
+    try {
+      envelope = JSON.parse(payload);
+    } catch (_) {
+      return;
+    }
     if (envelope?.ok !== true || kind === 'error') throw new ChatError(chatErrorMessage(envelope));
     if (kind === 'reset') {
       reply = '';

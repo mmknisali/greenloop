@@ -4,10 +4,12 @@
   <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>GreenLoop – Panel</title>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="assets/css/shared.css" />
-  <link rel="stylesheet" href="assets/css/dashboard.css?v=3" />
+  <link rel="stylesheet" href="assets/css/shared.css?v=6" />
+  <link rel="stylesheet" href="assets/css/dashboard.css?v=6" />
 </head>
 <body>
+<a class="skip-link" href="#main-content">İçeriğe geç</a>
+
 <div class="layout">
   <!-- Masaüstü sidebar -->
   <aside class="sidebar">
@@ -33,7 +35,7 @@
       <span class="mob-user" data-nav-user="first">—</span>
     </div>
 
-    <main class="main">
+    <main tabindex="-1" class="main" id="main-content">
       <div class="tab-page active" id="tp-overview">
         <div class="page-header"><div class="page-title">Genel Bakış</div><div class="page-sub" id="welcome-msg">Hoş geldiniz</div></div>
         <div class="sr-only" id="overview-stats-status" role="status">Özet yükleniyor…</div>
@@ -41,7 +43,7 @@
           <div class="stat-c"><div class="num" id="ov-companies"><span class="skeleton stat-skeleton" aria-hidden="true"></span></div><div class="lbl">Şirket</div></div>
           <div class="stat-c"><div class="num" id="ov-inputs"><span class="skeleton stat-skeleton" aria-hidden="true"></span></div><div class="lbl">Hammadde</div></div>
           <div class="stat-c"><div class="num" id="ov-outputs"><span class="skeleton stat-skeleton" aria-hidden="true"></span></div><div class="lbl">Atık Türü</div></div>
-          <div class="stat-c"><div class="num" id="ov-msgs"><span class="skeleton stat-skeleton" aria-hidden="true"></span></div><div class="lbl">Mesaj</div></div>
+          <div class="stat-c"><div class="num" id="ov-msgs"><span class="skeleton stat-skeleton" aria-hidden="true"></span></div><div class="lbl">Konuşma</div></div>
         </div>
         <div class="quick-start">
           <div class="quick-start-title"><span data-icon="rocket" data-icon-class="qs-icon"></span>Hızlı Başlangıç</div>
@@ -89,12 +91,12 @@
 
       <div class="tab-page" id="tp-messages">
         <div class="page-header"><div class="page-title">Mesajlar</div><div class="page-sub">Tüm konuşmalarınız</div></div>
-        <div class="msg-tabs">
-          <button class="msg-tab active" id="mtab-in" type="button" aria-pressed="true" aria-controls="msg-list" onclick="switchMsgTab('in')"><span data-icon="download" data-icon-class="fst-icon"></span> Gelen</button>
-          <button class="msg-tab" id="mtab-out" type="button" aria-pressed="false" aria-controls="msg-list" onclick="switchMsgTab('out')"><span data-icon="upload" data-icon-class="fst-icon"></span> Gönderdiğim</button>
+        <div class="msg-tabs" role="tablist" aria-label="Mesaj türü">
+          <button class="msg-tab active" id="mtab-in" type="button" role="tab" aria-pressed="true" aria-controls="msg-list" onclick="switchMsgTab('in')"><span data-icon="download" data-icon-class="fst-icon"></span> Gelen</button>
+          <button class="msg-tab" id="mtab-out" type="button" role="tab" aria-pressed="false" aria-controls="msg-list" onclick="switchMsgTab('out')"><span data-icon="upload" data-icon-class="fst-icon"></span> Gönderdiğim</button>
         </div>
         <div class="sr-only" id="msg-list-status" role="status"></div>
-        <div class="msg-list" id="msg-list" aria-busy="true"></div>
+        <div class="msg-list" id="msg-list" role="tabpanel" aria-labelledby="mtab-in" aria-busy="true"></div>
       </div>
 
       <!-- Mobil çıkış butonu -->
@@ -154,10 +156,10 @@
   </form>
 </dialog>
 
-<script src="icons.js"></script>
-<script src="api.js"></script>
-<script src="assets/js/nav.js?v=3"></script>
-<script src="tr-data.js"></script>
-<script src="assets/js/dashboard.js?v=3"></script>
+<script src="icons.js?v=6"></script>
+<script src="api.js?v=6"></script>
+<script src="assets/js/nav.js?v=6"></script>
+<script src="tr-data.js?v=6"></script>
+<script src="assets/js/dashboard.js?v=6"></script>
 </body>
 </html>
