@@ -67,7 +67,10 @@ const Companies = {
     delete:   id => _del(`/companies.php?action=delete&id=${encodeURIComponent(id)}`, true),
 };
 
-const Matches = { network: () => _get('/matches.php?action=network') };
+const Matches = {
+    network: () => _get('/matches.php?action=network'),
+    stats:   () => _get('/matches.php?action=stats'),
+};
 
 const Messages = {
     send:                  (d, signedIn = false) => _post('/messages.php?action=send', d, signedIn),

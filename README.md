@@ -54,6 +54,7 @@ Routes are under `/api/` at the site root (the browser uses relative `./api` to 
 | GET | `matches.php?action=for_company&id=...` | No | Ranked material matches for one company |
 | GET | `matches.php?action=network` | No | Directed edges with `fromId`, `toId`, `score`, and `reasons` |
 | GET | `matches.php?action=search&waste=...` | No | Tag search; optional `type=input`, `output`, or `both` (default) |
+| GET | `matches.php?action=stats` | No | Public recycling and match statistics |
 | POST | `messages.php?action=send` | No | Start or continue a conversation with `toCompanyId` and `text`; guests also send `fromName` and `fromEmail` |
 | GET | `messages.php?action=threads` | Yes | Visible inbound threads for your companies |
 | GET | `messages.php?action=sent` | Yes | Your visible threads as sender |

@@ -45,11 +45,15 @@ header('X-Accel-Buffering: no');
 
 try {
     if (CHAT_KEY !== '') {
-        $companies = chatCompanies($question);
+        $allCompanies = loadPublicCompanies();
+        $companies = chatCompanies($question, $allCompanies);
         chatEvent($companies, 'companies');
+        $stats = platformStats($allCompanies, matchNetwork($allCompanies)['edges']);
+        $statsLine = json_encode(['tur' => 'platform_istatistikleri'] + $stats,
+            JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_THROW_ON_ERROR);
         $lines = array_map(static fn(array $company): string => json_encode($company,
             JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_THROW_ON_ERROR), $companies);
-        $context = $lines ? implode("\n", $lines) : 'Eşleşen şirket bulunamadı.';
+        $context = $statsLine . "\n" . ($lines ? implode("\n", $lines) : 'Eşleşen şirket bulunamadı.');
         $prompt = file_get_contents(__DIR__ . '/prompts/master.md');
         if ($prompt === false) throw new RuntimeException('Chat prompt unavailable.');
         array_unshift($messages, ['role' => 'system', 'content' => str_replace('{{context}}', $context, $prompt)]);
@@ -74,8 +78,8 @@ try {
 chatEvent(['text' => 'Asistan şu an yoğun, lütfen biraz sonra tekrar deneyin.']);
 chatDone();
 
-function chatCompanies(string $question): array {
-    $companies = loadPublicCompanies();
+function chatCompanies(string $question, ?array $companies = null): array {
+    $companies ??= loadPublicCompanies();
     $tokens = static fn(string $text): array => preg_split('/[^\p{L}\p{N}]+/u', normalizeTag($text), -1, PREG_SPLIT_NO_EMPTY);
     $words = array_fill_keys($tokens($question), true);
     $tags = [];

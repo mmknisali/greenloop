@@ -200,11 +200,55 @@ function matchSearchRequest(): array {
     return searchMatches(loadPublicCompanies(), [$tag], $type, [$tag => $waste]);
 }
 
+function platformStats(?array $companies = null, ?array $edges = null): array {
+    $companies ??= loadPublicCompanies();
+    $edges ??= matchNetwork($companies)['edges'];
+
+    $outputs = $inputs = $sectors = $provinces = $participants = [];
+    $demoCount = 0;
+    foreach ($companies as $company) {
+        if (!empty($company['isDemo'])) ++$demoCount;
+        if (($company['sector'] ?? '') !== '') $sectors[normalizeTag($company['sector'])] = true;
+        if (($company['il'] ?? '') !== '') $provinces[normalizeTag($company['il'])] = true;
+        foreach (matchTagMap($company['outputs']) as $tag => $_) $outputs[$tag] = true;
+        foreach (matchTagMap($company['inputs']) as $tag => $_) $inputs[$tag] = true;
+    }
+    foreach ($edges as $edge) {
+        $participants[$edge['fromId']] = $participants[$edge['toId']] = true;
+    }
+
+    $materials = [];
+    foreach ($edges as $edge) {
+        foreach ($edge['reasons'] as $reason) {
+            $tag = $reason['tag'];
+            $materials[$tag] ??= ['etiket' => $reason['from'], 'normalize' => $tag, 'eslesme' => 0];
+            ++$materials[$tag]['eslesme'];
+        }
+    }
+    $materials = array_values($materials);
+    usort($materials, static fn(array $a, array $b): int =>
+        ($b['eslesme'] <=> $a['eslesme']) ?: strcmp($a['normalize'], $b['normalize']));
+
+    return [
+        'sirket' => count($companies),
+        'demoSirket' => $demoCount,
+        'sektor' => count($sectors),
+        'il' => count($provinces),
+        'atikTuru' => count($outputs),
+        'hammaddeTuru' => count($inputs),
+        'eslesme' => count($edges),
+        'eslesenSirket' => count($participants),
+        'onemliAtiklar' => array_map(static fn(array $m): array => [
+            'etiket' => $m['etiket'], 'eslesme' => $m['eslesme'],
+        ], array_slice($materials, 0, 6)),
+    ];
+}
+
 if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
     require_once __DIR__ . '/config.php';
 
     $action = $_GET['action'] ?? '';
-    if (!in_array($action, ['for_company', 'network', 'search'], true)) err('Geçersiz işlem.', 404);
+    if (!in_array($action, ['for_company', 'network', 'search', 'stats'], true)) err('Geçersiz işlem.', 404);
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
         header('Allow: GET');
         err('Geçersiz istek yöntemi.', 405);
@@ -214,6 +258,7 @@ if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
         'for_company' => matchCompanyRequest(),
         'network'     => matchNetwork(loadPublicCompanies()),
         'search'      => matchSearchRequest(),
+        'stats'       => platformStats(),
     };
     resp(['ok' => true, 'data' => $data]);
 }

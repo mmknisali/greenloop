@@ -247,6 +247,11 @@ def mock_chat_checks():
             (200, "/v1/chat/completions", True, MODELS[0], True),
         ], attempts)
         histories = [payload.get("messages") for _, _, _, payload in upstream.requests]
+        system_prompt = upstream.requests[0][3]["messages"][0]["content"]
+        check("assistant system context includes public platform statistics",
+              "platform_istatistikleri" in system_prompt and "eslesme" in system_prompt,
+              system_prompt[:200])
+
         check("chat forwards only the exact sanitized history on both 429 attempts",
               len(histories) == 2 and all(
                   isinstance(h, list) and len(h) == 7 and isinstance(h[0], dict)
@@ -350,6 +355,11 @@ def existing_checks():
     check("real seed pair ranked first by multiple overlapping materials", s == 200 and
           len(scores) >= 2 and scores == sorted(scores, reverse=True) and scores[0] > scores[1] and
           matches[0]["company"]["id"] == "demo-17" and len(matches[0]["reasons"]) == 2, (s, p))
+    s, p = guest.call("GET", "/matches.php?action=stats")
+    stats = p.get("data") or {}
+    check("public recycling statistics are available", s == 200 and stats.get("sirket", 0) >= 20
+          and stats.get("eslesme", 0) > 0 and len(stats.get("onemliAtiklar", [])) > 0, (s, p))
+
     s, p = guest.call("GET", "/matches.php?action=network")
     edges = (p.get("data") or {}).get("edges", [])
     check("network edges are actual output-to-input overlaps, not sector-only", s == 200 and bool(edges) and
