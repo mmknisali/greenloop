@@ -63,7 +63,7 @@ async function handleNewMessages(messages) {
   if (document.getElementById('tp-messages').classList.contains('active')) await renderMessages();
   if (document.getElementById('tp-overview').classList.contains('active') && messages.some(m => !m.fromCompanyId)) {
     const threads = await Messages.getThreadsForCompany();
-    document.getElementById('ov-msgs').textContent = threads?.length ?? '—';
+    document.getElementById('ov-msgs').textContent = threads?.length ?? '-';
   }
 }
 
@@ -185,10 +185,10 @@ async function renderOverview() {
   if (request !== overviewRequest) return;
   const [cos, threads] = data ?? [];
   syncUnreadFromThreads(threads);
-  document.getElementById('ov-companies').textContent = cos?.length ?? '—';
-  document.getElementById('ov-inputs').textContent    = cos?.reduce((s, c) => s + (c.inputs  || []).length, 0) ?? '—';
-  document.getElementById('ov-outputs').textContent   = cos?.reduce((s, c) => s + (c.outputs || []).length, 0) ?? '—';
-  document.getElementById('ov-msgs').textContent      = threads?.length ?? '—';
+  document.getElementById('ov-companies').textContent = cos?.length ?? '-';
+  document.getElementById('ov-inputs').textContent    = cos?.reduce((s, c) => s + (c.inputs  || []).length, 0) ?? '-';
+  document.getElementById('ov-outputs').textContent   = cos?.reduce((s, c) => s + (c.outputs || []).length, 0) ?? '-';
+  document.getElementById('ov-msgs').textContent      = threads?.length ?? '-';
   setLoadState(stats, false, data ? 'Özet yüklendi.' : 'Özet yüklenemedi.');
 }
 
@@ -301,7 +301,7 @@ async function renderMessages() {
   const companyNames = new Map(companies.map(c => [String(c.id), c.name]));
   const emptyText = !threads ? 'Mesajlar yüklenemedi.' : inbound ? 'Henüz gelen mesaj yok.' : 'Henüz mesaj göndermediniz.';
   const html = threads?.length ? threads.map((t, index) => {
-    const companyName = t.companyName ?? companyNames.get(String(t.companyId)) ?? '—';
+    const companyName = t.companyName ?? companyNames.get(String(t.companyId)) ?? '-';
     const hasUnread = t.unreadCount != null ? t.unreadCount > 0
       : (t.msgs ?? [t.lastMsg]).some(m => m && !m.read && (inbound ? !m.fromCompanyId : !!m.fromCompanyId));
     const preview = String(t.lastMsg?.text ?? '');
@@ -349,7 +349,7 @@ async function deleteThread(conversationId, type, opener) {
 
 async function openThread({ conversationId, companyName, type }, opener) {
   currentConversation = { id: conversationId, type, opener };
-  document.getElementById('modal-title').textContent = (companyName || 'Şirket') + ' — Konuşma';
+  document.getElementById('modal-title').textContent = (companyName || 'Şirket') + ' - Konuşma';
   const box = document.getElementById('modal-msgs');
   box.innerHTML = listSkeleton('chat-bubble them');
   threadDialog.showModal();
@@ -368,7 +368,7 @@ function renderModalMsgs(msgs, thread) {
     const side = isOwnMessage(m, thread.type) ? 'me' : 'them';
     return `<div class="chat-message ${side}">
       <div class="chat-bubble ${side}">${escapeHtml(m.text)}</div>
-      <div class="bubble-meta">${escapeHtml(m.fromName||'—')} · ${escapeHtml(new Date(m.createdAt).toLocaleString('tr-TR'))}</div>
+      <div class="bubble-meta">${escapeHtml(m.fromName||'-')} · ${escapeHtml(new Date(m.createdAt).toLocaleString('tr-TR'))}</div>
     </div>`;
   }).join('') : emptyState('chat', emptyText);
   if (thread.lastHtml !== html) {

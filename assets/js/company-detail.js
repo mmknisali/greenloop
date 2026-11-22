@@ -12,7 +12,7 @@ let conversationId = null, historyRequest = 0;
     return;
   }
 
-  document.title = 'GreenLoop – ' + company.name;
+  document.title = 'GreenLoop - ' + company.name;
   renderPage();
 
   if (currentUser && String(company.userId) !== String(currentUser.id)) {
@@ -63,13 +63,13 @@ function renderPage() {
       <div class="section">
         <div class="section-title">${Icon('clipboard')} Genel Bilgiler</div>
         <dl class="info-grid">
-          <div class="info-item"><dt>Şehir</dt><dd class="val">${Icon('pin')} ${escapeHtml(company.il||'—')} / ${escapeHtml(company.ilce||'—')}</dd></div>
-          <div class="info-item"><dt>Sektör</dt><dd class="val">${escapeHtml(company.sector||'—')}</dd></div>
+          <div class="info-item"><dt>Şehir</dt><dd class="val">${Icon('pin')} ${escapeHtml(company.il||'-')} / ${escapeHtml(company.ilce||'-')}</dd></div>
+          <div class="info-item"><dt>Sektör</dt><dd class="val">${escapeHtml(company.sector||'-')}</dd></div>
           ${company.size ? `<div class="info-item"><dt>Çalışan</dt><dd class="val">${Icon('users')} ${escapeHtml(company.size)}</dd></div>` : ''}
           ${company.email ? `<div class="info-item"><dt>E-posta</dt><dd class="val">${escapeHtml(company.email)}</dd></div>` : ''}
           ${company.tel   ? `<div class="info-item"><dt>Telefon</dt><dd class="val">${escapeHtml(company.tel)}</dd></div>` : ''}
           ${company.web   ? `<div class="info-item"><dt>Web</dt><dd class="val">${webUrl ? `<a href="${escapeHtml(webUrl)}" target="_blank" rel="noopener noreferrer">${webLabel}</a>` : webLabel}</dd></div>` : ''}
-          <div class="info-item"><dt>Eklenme Tarihi</dt><dd class="val">${escapeHtml(company.date||'—')}</dd></div>
+          <div class="info-item"><dt>Eklenme Tarihi</dt><dd class="val">${escapeHtml(company.date||'-')}</dd></div>
         </dl>
       </div>
     </div>

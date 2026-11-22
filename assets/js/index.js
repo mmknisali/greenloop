@@ -4,7 +4,6 @@ document.getElementById('btn-network').innerHTML      = Icon('network') + ' Ağ�
 document.getElementById('btn-register').innerHTML     = 'Hesap Oluştur ' + Icon('arrowRight');
 document.getElementById('about-tag').innerHTML        = Icon('sparkle') + ' Proje';
 document.getElementById('recovery-tag').innerHTML      = Icon('recycle') + ' Potansiyel';
-document.getElementById('stats-tag').innerHTML         = Icon('chart') + ' Etki';
 document.getElementById('network-tag').innerHTML      = Icon('network') + ' Ağ';
 document.getElementById('chat-header-avatar').innerHTML = Icon('ai');
 document.getElementById('cmsg-avatar-0').innerHTML    = Icon('ai');
@@ -14,10 +13,10 @@ document.getElementById('flow-steps').innerHTML = [
   ['yellow','component','Sistem Analiz Eder','Atık türü ve olası kullanım alanları belirlenir'],
   ['blue','link','Eşleştirme Yapılır','Uygun sektörler ve şirketler önerilir'],
   ['teal','leaf','Emisyon Tasarrufu','Karbon azaltım miktarı hesaplanır']
-].map(function (s, i, arr) {
+].map(function (s) {
   var step = '<div class="flow-step"><div class="step-icon ' + s[0] + '">' + Icon(s[1]) + '</div>' +
     '<div class="step-text"><strong>' + s[2] + '</strong><span>' + s[3] + '</span></div></div>';
-  return i < arr.length - 1 ? step + '<div class="flow-arrow">' + Icon('arrowDown') + '</div>' : step;
+  return step;
 }).join('');
 
 document.getElementById('feature-grid').innerHTML = [
@@ -35,36 +34,25 @@ const obs = new IntersectionObserver(entries => {
 }, { threshold: .12 });
 document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
 
-const barObs = new IntersectionObserver(entries => {
-  entries.forEach(e => {
-    if (!e.isIntersecting) return;
-    e.target.style.width = (parseFloat(e.target.dataset.width) * 100) + '%';
-    barObs.unobserve(e.target);
-  });
-}, { threshold: .4 });
-document.querySelectorAll('.bar-fill').forEach(el => barObs.observe(el));
-
-function animateCounter(el, target) {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    el.textContent = target;
+async function loadStats() {
+  const band = document.getElementById('stats-band');
+  const list = document.getElementById('top-materials');
+  const status = document.getElementById('stats-status');
+  const res = await Matches.stats();
+  band.removeAttribute('aria-busy');
+  list.removeAttribute('aria-busy');
+  if (!res.ok || !res.data) {
+    status.textContent = 'İstatistikler yüklenemedi.';
+    list.innerHTML = '<span class="stats-error">İstatistikler yüklenemedi.</span>';
     return;
   }
-  const dur = 1400, t0 = performance.now();
-  function step(t) {
-    const p = Math.min((t - t0) / dur, 1);
-    el.textContent = Math.floor(p * target);
-    if (p < 1) requestAnimationFrame(step); else el.textContent = target;
-  }
-  requestAnimationFrame(step);
+  const data = res.data;
+  band.querySelectorAll('[data-stat]').forEach(el => { el.textContent = data[el.dataset.stat] ?? '0'; });
+  list.innerHTML = data.onemliAtiklar.map(m =>
+    `<span class="material-item">${esc(m.etiket)} <strong>${m.eslesme}</strong></span>`).join('');
+  status.textContent = `${data.eslesme} gerçek eşleşme listelendi.`;
 }
-const counterObs = new IntersectionObserver(entries => {
-  entries.forEach(e => {
-    if (!e.isIntersecting) return;
-    animateCounter(e.target, parseInt(e.target.dataset.target, 10));
-    counterObs.unobserve(e.target);
-  });
-}, { threshold: .4 });
-document.querySelectorAll('.stat-number').forEach(el => counterObs.observe(el));
+loadStats();
 
 const chatHistory = [];
 let isLoading = false;

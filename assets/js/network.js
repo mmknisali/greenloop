@@ -119,7 +119,7 @@ function renderCards() {
   if (!data.length) { grid.innerHTML = '<div class="empty-cards"><div class="eic">' + Icon('search') + '</div><p>Sonuç bulunamadı.</p></div>'; return; }
   grid.innerHTML = data.map(c => `
     <a class="member-card" href="${escapeHtml(companyDetailUrl(c.id))}">
-      <div class="mc-top"><div class="mc-avatar">${Icon(resolveCompanyIcon(c.icon))}</div><div><div class="mc-name">${escapeHtml(c.name)}${c.isDemo?' <span class="mc-demo">DEMO</span>':''}</div><div class="mc-loc">${Icon('pin')} ${escapeHtml(c.il||'—')} / ${escapeHtml(c.ilce||'—')}</div></div></div>
+      <div class="mc-top"><div class="mc-avatar">${Icon(resolveCompanyIcon(c.icon))}</div><div><div class="mc-name">${escapeHtml(c.name)}${c.isDemo?' <span class="mc-demo">DEMO</span>':''}</div><div class="mc-loc">${Icon('pin')} ${escapeHtml(c.il||'-')} / ${escapeHtml(c.ilce||'-')}</div></div></div>
       <div><span class="mc-sector">${escapeHtml(c.sector||'Sektör')}</span></div>
       <div class="mc-tags">${(c.inputs||[]).slice(0,2).map(t=>`<span class="mc-tag in">${Icon('component')} ${escapeHtml(t)}</span>`).join('')}${(c.outputs||[]).slice(0,2).map(t=>`<span class="mc-tag out">${Icon('recycle')} ${escapeHtml(t)}</span>`).join('')}</div>
       ${matchSummary(c.id)}
@@ -304,9 +304,9 @@ function showTooltip(marker, company) {
   hideTooltip();
   tooltipMarker = marker;
   document.getElementById('tt-name').textContent = company.name + (company.isDemo ? ' (Demo)' : '');
-  document.getElementById('tt-loc').textContent = (company.il||'—')+' / '+(company.ilce||'—');
-  document.getElementById('tt-sector').textContent = company.sector||'—';
-  document.getElementById('tt-date').textContent = company.date||'—';
+  document.getElementById('tt-loc').textContent = (company.il||'-')+' / '+(company.ilce||'-');
+  document.getElementById('tt-sector').textContent = company.sector||'-';
+  document.getElementById('tt-date').textContent = company.date||'-';
   document.getElementById('tt-tags').innerHTML = (company.inputs||[]).slice(0,3).map(t=>`<span class="tt-tag in">${escapeHtml(t)}</span>`).join('')+(company.outputs||[]).slice(0,3).map(t=>`<span class="tt-tag out">${escapeHtml(t)}</span>`).join('');
   document.getElementById('tt-match').innerHTML = matchSummary(company.id);
   tooltip.classList.add('show');
