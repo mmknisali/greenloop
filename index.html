@@ -23,14 +23,22 @@
       <h1>Atığınızı<br><em>hammaddeye</em> dönüştürün</h1>
       <p class="hero-sub">GreenLoop, şirketlerin ürettiği atık ile ihtiyaç duyduğu hammaddeyi tek bir ağda buluşturur. Şirketinizi ekleyin, uygun eşleşmeleri görün, doğrudan iletişime geçin.</p>
       <div class="hero-actions">
-        <a href="network.html" class="btn-primary" id="btn-explore"></a>
-        <a href="#chat-section" class="btn-outline" id="btn-ai"></a>
+        <a href="network.html" class="btn-primary" id="btn-explore"><span data-icon="network"></span> Ağı Keşfet</a>
+        <a href="#chat-section" class="btn-outline" id="btn-ai"><span data-icon="ai"></span> AI ile Konuş</a>
       </div>
     </div>
     <div class="hero-visual">
       <div class="flow-card">
         <div class="flow-card-title">Platform Akışı</div>
-        <div class="flow-steps" id="flow-steps"></div>
+        <div class="flow-steps" id="flow-steps">
+          <div class="flow-step"><div class="step-icon green" data-icon="factory"></div><div class="step-text"><strong>Atık Verisi Yüklenir</strong><span>Şirket atık ve hammadde bilgisini sisteme girer</span></div></div>
+          <div class="flow-arrow" data-icon="arrowDown"></div>
+          <div class="flow-step"><div class="step-icon yellow" data-icon="component"></div><div class="step-text"><strong>Sistem Analiz Eder</strong><span>Atık türü ve olası kullanım alanları belirlenir</span></div></div>
+          <div class="flow-arrow" data-icon="arrowDown"></div>
+          <div class="flow-step"><div class="step-icon blue" data-icon="link"></div><div class="step-text"><strong>Eşleştirme Yapılır</strong><span>Uygun sektörler ve şirketler önerilir</span></div></div>
+          <div class="flow-arrow" data-icon="arrowDown"></div>
+          <div class="flow-step"><div class="step-icon teal" data-icon="leaf"></div><div class="step-text"><strong>Emisyon Tasarrufu</strong><span>Karbon azaltım miktarı hesaplanır</span></div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -42,13 +50,13 @@
     <p class="section-lead reveal">Atıklarınız hakkında sorularınızı sorun. Geri dönüşüm fırsatlarını, karbon tasarrufunu ve döngüsel ekonomiyi keşfedin.</p>
     <div class="chat-container reveal">
       <div class="chat-header">
-        <div class="chat-header-avatar" id="chat-header-avatar"></div>
+        <div class="chat-header-avatar" id="chat-header-avatar" data-icon="ai"></div>
         <div class="chat-header-info"><strong>GreenLoop AI</strong><small>Döngüsel Ekonomi Asistanı</small></div>
         <div class="chat-status-dot"></div>
       </div>
       <div class="chat-messages" id="chat-messages" role="log" aria-label="Sohbet mesajları">
         <div class="cmsg assistant">
-          <div class="cmsg-avatar" id="cmsg-avatar-0"></div>
+          <div class="cmsg-avatar" id="cmsg-avatar-0" data-icon="ai"></div>
           <div class="cmsg-bubble"><p>Merhaba! Ben <strong>GreenLoop AI</strong> asistanıyım.</p><p>Atıklarınızı nasıl değere dönüştürebileceğinizi birlikte keşfedelim. Size nasıl yardımcı olabilirim?</p></div>
         </div>
       </div>
@@ -73,16 +81,21 @@
 
 <section id="about">
   <div class="about-wrap">
-    <span class="section-tag reveal" id="about-tag"></span>
+    <span class="section-tag reveal" id="about-tag"><span data-icon="sparkle"></span> Proje</span>
     <h2 class="reveal">GreenLoop nedir?</h2>
     <p class="section-lead reveal">Bir işletmenin attığı malzeme, çoğu zaman başka bir sektör için değerli bir hammadde olabilir. GreenLoop bu potansiyeli görünür kılar: şirketler atık ve hammadde ihtiyaçlarını sisteme girer, sistem şehir/sektör/atık uyumuna göre olası ortakları sıralar, taraflar platform üzerinden doğrudan mesajlaşır.</p>
-    <div class="feature-grid" id="feature-grid"></div>
+    <div class="feature-grid" id="feature-grid">
+      <div class="feature-card reveal"><div class="feature-icon" data-icon="factory"></div><div class="feature-body"><strong>Şirket profili oluşturun</strong><span>Atık ve hammadde ihtiyaçlarınızı, sektörünüzü ve konumunuzu sisteme girin</span></div></div>
+      <div class="feature-card reveal"><div class="feature-icon" data-icon="link"></div><div class="feature-body"><strong>Otomatik eşleşme görün</strong><span>Sistem şehir, sektör ve atık uyumuna göre olası ortakları sıralar</span></div></div>
+      <div class="feature-card reveal"><div class="feature-icon" data-icon="chat"></div><div class="feature-body"><strong>Doğrudan mesajlaşın</strong><span>Eşleşen şirketlerle platform üzerinden doğrudan iletişime geçin</span></div></div>
+      <div class="feature-card reveal"><div class="feature-icon" data-icon="network"></div><div class="feature-body"><strong>Ağı haritada izleyin</strong><span>Tüm şirketleri ve aralarındaki bağlantıları interaktif grafikte görün</span></div></div>
+    </div>
   </div>
 </section>
 
 <section id="recovery">
   <div class="recovery-wrap">
-    <span class="section-tag reveal" id="recovery-tag"></span>
+    <span class="section-tag reveal" id="recovery-tag"><span data-icon="recycle"></span> Potansiyel</span>
     <h2 class="reveal">Sektöre Göre Geri Kazanım Potansiyeli</h2>
     <p class="section-lead reveal">Atığın ne kadarı yeniden hammaddeye dönüştürülebilir? Sektöre göre tahmini geri kazanım oranları:</p>
     <div class="waste-bar-list">
@@ -97,25 +110,25 @@
 
 <section id="stats">
   <div class="stats-wrap">
-    <span class="section-tag reveal" id="stats-tag"></span>
+    <span class="section-tag reveal" id="stats-tag"><span data-icon="chart"></span> Etki</span>
     <h2 class="reveal">Rakamlarla Endüstriyel Atık</h2>
     <p class="stats-sub reveal">Küresel ölçekte sorunun büyüklüğünü ve döngüsel ekonominin potansiyel etkisini gösteren veriler.</p>
     <div class="stats-grid">
-      <div class="stat-card reveal"><div class="stat-number" data-target="2">0</div><h4>Milyar Ton / Yıl</h4><p>UNEP 2024 raporuna göre 2023'te üretilen küresel belediye katı atık miktarı. 2050'de 3,8 milyara ulaşması bekleniyor.</p></div>
-      <div class="stat-card reveal"><div class="stat-number" data-target="33">0</div><h4>%33 Yanlış Yönetim</h4><p>Dünya Bankası verilerine göre küresel atıkların en az %33'ü çevreye güvenli biçimde yönetilmiyor.</p></div>
-      <div class="stat-card reveal"><div class="stat-number" data-target="45">0</div><h4>%45 Azaltım Potansiyeli</h4><p>Ellen MacArthur Vakfı'na göre döngüsel ekonomi, enerji dönüşümünün ulaşamadığı %45'lik emisyonları azaltabilir.</p></div>
+      <div class="stat-card reveal"><div class="stat-number" data-target="2">2</div><h4>Milyar Ton / Yıl</h4><p>UNEP 2024 raporuna göre 2023'te üretilen küresel belediye katı atık miktarı. 2050'de 3,8 milyara ulaşması bekleniyor.</p></div>
+      <div class="stat-card reveal"><div class="stat-number" data-target="33">33</div><h4>%33 Yanlış Yönetim</h4><p>Dünya Bankası verilerine göre küresel atıkların en az %33'ü çevreye güvenli biçimde yönetilmiyor.</p></div>
+      <div class="stat-card reveal"><div class="stat-number" data-target="45">45</div><h4>%45 Azaltım Potansiyeli</h4><p>Ellen MacArthur Vakfı'na göre döngüsel ekonomi, enerji dönüşümünün ulaşamadığı %45'lik emisyonları azaltabilir.</p></div>
     </div>
   </div>
 </section>
 
 <section id="network-cta">
   <div style="max-width:700px;margin:0 auto;">
-    <span class="section-tag reveal" style="background:rgba(255,255,255,.15);color:var(--yellow-soft);" id="network-tag"></span>
+    <span class="section-tag reveal" style="background:rgba(255,255,255,.15);color:var(--yellow-soft);" id="network-tag"><span data-icon="network"></span> Ağ</span>
     <h2 class="reveal" style="color:#fff;margin:.75rem 0;">Atık Ağını İnceleyin</h2>
     <p class="reveal" style="color:rgba(255,255,255,.7);font-size:1rem;line-height:1.8;max-width:520px;margin:0 auto 2rem;">Kayıtlı şirketleri, atık türlerini ve eşleşme fırsatlarını görün. Şirketinizi eklemek için hesap oluşturun.</p>
     <div class="join-actions reveal">
-      <a href="network.html" class="btn-white" id="btn-network"></a>
-      <a href="login.html?tab=register" class="btn-outline" id="btn-register" data-preview-dashboard></a>
+      <a href="network.html" class="btn-white" id="btn-network"><span data-icon="network"></span> Ağı Görüntüle</a>
+      <a href="login.html?tab=register" class="btn-outline" id="btn-register" data-preview-dashboard>Hesap Oluştur <span data-icon="arrowRight"></span></a>
     </div>
   </div>
 </section>
@@ -124,9 +137,9 @@
   <p>© 2026 <strong>GreenLoop</strong> — ReSource takımı tarafından geliştirilmiştir</p>
 </footer>
 
-<script src="icons.js?v=18"></script>
-<script src="api.js?v=18"></script>
-<script src="assets/js/nav.js?v=18"></script>
-<script src="assets/js/index.js?v=18"></script>
+<script defer src="icons.js?v=18"></script>
+<script defer src="api.js?v=18"></script>
+<script defer src="assets/js/nav.js?v=18"></script>
+<script defer src="assets/js/index.js?v=18"></script>
 </body>
 </html>

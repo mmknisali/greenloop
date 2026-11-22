@@ -1,34 +1,4 @@
-document.getElementById('btn-explore').innerHTML     = Icon('network') + ' Ağı Keşfet';
-document.getElementById('btn-ai').innerHTML           = Icon('ai') + ' AI ile Konuş';
-document.getElementById('btn-network').innerHTML      = Icon('network') + ' Ağı Görüntüle';
-document.getElementById('btn-register').innerHTML     = 'Hesap Oluştur ' + Icon('arrowRight');
-document.getElementById('about-tag').innerHTML        = Icon('sparkle') + ' Proje';
-document.getElementById('recovery-tag').innerHTML      = Icon('recycle') + ' Potansiyel';
-document.getElementById('stats-tag').innerHTML         = Icon('chart') + ' Etki';
-document.getElementById('network-tag').innerHTML      = Icon('network') + ' Ağ';
-document.getElementById('chat-header-avatar').innerHTML = Icon('ai');
-document.getElementById('cmsg-avatar-0').innerHTML    = Icon('ai');
-
-document.getElementById('flow-steps').innerHTML = [
-  ['green','factory','Atık Verisi Yüklenir','Şirket atık ve hammadde bilgisini sisteme girer'],
-  ['yellow','component','Sistem Analiz Eder','Atık türü ve olası kullanım alanları belirlenir'],
-  ['blue','link','Eşleştirme Yapılır','Uygun sektörler ve şirketler önerilir'],
-  ['teal','leaf','Emisyon Tasarrufu','Karbon azaltım miktarı hesaplanır']
-].map(function (s, i, arr) {
-  var step = '<div class="flow-step"><div class="step-icon ' + s[0] + '">' + Icon(s[1]) + '</div>' +
-    '<div class="step-text"><strong>' + s[2] + '</strong><span>' + s[3] + '</span></div></div>';
-  return i < arr.length - 1 ? step + '<div class="flow-arrow">' + Icon('arrowDown') + '</div>' : step;
-}).join('');
-
-document.getElementById('feature-grid').innerHTML = [
-  ['factory','Şirket profili oluşturun','Atık ve hammadde ihtiyaçlarınızı, sektörünüzü ve konumunuzu sisteme girin'],
-  ['link','Otomatik eşleşme görün','Sistem şehir, sektör ve atık uyumuna göre olası ortakları sıralar'],
-  ['chat','Doğrudan mesajlaşın','Eşleşen şirketlerle platform üzerinden doğrudan iletişime geçin'],
-  ['network','Ağı haritada izleyin','Tüm şirketleri ve aralarındaki bağlantıları interaktif grafikte görün']
-].map(function (f) {
-  return '<div class="feature-card reveal"><div class="feature-icon">' + Icon(f[0]) + '</div>' +
-    '<div class="feature-body"><strong>' + f[1] + '</strong><span>' + f[2] + '</span></div></div>';
-}).join('');
+applyIcons();
 
 const obs = new IntersectionObserver(entries => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });

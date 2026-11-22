@@ -1,12 +1,4 @@
-document.getElementById('feature-list').innerHTML = [
-  ['factory','Şirketinizi atık ağına kaydedin'],
-  ['link','Hammadde ortakları ile eşleşin'],
-  ['chat','Doğrudan iletişim kurun'],
-  ['chart','Emisyon azaltımınızı takip edin']
-].map(f => `<div class="feat"><div class="feat-dot">${Icon(f[0])}</div>${f[1]}</div>`).join('');
-
-document.getElementById('btn-login').innerHTML    = 'Giriş Yap ' + Icon('arrowRight');
-document.getElementById('btn-register').innerHTML = 'Hesap Oluştur ' + Icon('arrowRight');
+applyIcons();
 if (new URLSearchParams(location.search).get('tab') === 'register') switchTab('register');
 
 (async () => {

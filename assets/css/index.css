@@ -153,6 +153,13 @@ h1 em { font-style:normal; color:var(--gl); }
   transition:background .2s,border-color .2s;
 }
 .btn-outline:hover { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.6); }
+.btn-primary [data-icon], .btn-outline [data-icon],
+.btn-white [data-icon], .section-tag [data-icon] {
+  display:inline-block;
+  width:1em;
+  height:1em;
+  flex-shrink:0;
+}
 .flow-card {
   background:rgba(255,255,255,.07);
   border:1px solid rgba(149,213,178,.2);
@@ -204,6 +211,7 @@ h1 em { font-style:normal; color:var(--gl); }
   margin:-.2rem 0;
   display:flex;
   justify-content:center;
+  min-height:14px;
 }
 .flow-arrow .icon{width:14px;height:14px;}
 

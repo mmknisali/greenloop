@@ -178,6 +178,7 @@ html,body{min-height:100%;font-family:'Manrope',sans-serif;background:#0d1f14;co
   transition:opacity .2s,transform .15s;
 }
 .submit-btn:hover{opacity:.88;transform:translateY(-1px);}
+.submit-btn [data-icon]{display:inline-block;width:1em;height:1em;vertical-align:-.15em;}
 .submit-btn:disabled{
   opacity:.5;
   cursor:not-allowed;
